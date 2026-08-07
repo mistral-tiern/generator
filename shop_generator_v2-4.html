@@ -254,7 +254,13 @@
     <option value="PA">Generic Post-Apocalyptic</option>
   </select>
   <select id="typeSelect" style="font-family:inherit; font-size:13px; padding:9px 12px; border:1px solid var(--rule); border-radius:2px; background:var(--parchment-dark);"></select>
-  <button class="primary" onclick="newShop(document.getElementById('typeSelect').value, currentGameCode())">Generate</button>
+  <select id="wealthSelect" title="How prosperous this business is — affects base value and how much of the catalog gets stocked" style="font-family:inherit; font-size:13px; padding:9px 12px; border:1px solid var(--rule); border-radius:2px; background:var(--parchment-dark);">
+    <option value="poor">Poor</option>
+    <option value="modest" selected>Modest</option>
+    <option value="wealthy">Wealthy</option>
+    <option value="opulent">Opulent</option>
+  </select>
+  <button class="primary" onclick="newShop(document.getElementById('typeSelect').value, currentGameCode(), document.getElementById('wealthSelect').value)">Generate</button>
 </div>
 <div class="controls secondary">
   <button onclick="exportAll()">Export All Saved Shops</button>
@@ -1054,13 +1060,25 @@ var SV_TABLE = {
   provisioner: 400, stables: 1000, tailor: 250
 };
 
-function pickInventory(type, game) {
+// Fisher-Yates shuffle of a copy — used to sample a fixed number of
+// distinct items from a catalog without touching the original array.
+function shuffleCopy(arr) {
+  var a = arr.slice();
+  for (var i = a.length - 1; i > 0; i--) {
+    var j = Math.floor(Math.random() * (i + 1));
+    var tmp = a[i]; a[i] = a[j]; a[j] = tmp;
+  }
+  return a;
+}
+
+function pickInventory(type, game, wealth) {
   game = game || "DD";
+  var tier = WEALTH_LEVELS[wealth] || WEALTH_LEVELS.modest;
   var storeName = STORE_LOOKUP[type];
   var pool = STORE_ITEMS.filter(function(r) { return r.store === storeName && gameMatches(r.game, game); });
   if (pool.length === 0) return [];
-  var stockPct = randInt(65, 95);
-  var kept = pool.filter(function() { return chance(stockPct); });
+  var itemCount = Math.min(pool.length, randInt(tier.itemMin, tier.itemMax));
+  var kept = shuffleCopy(pool).slice(0, itemCount);
   if (kept.length === 0) kept = [pick(pool)];
   // give each row a stable local id for editing, independent of the source csv id
   return kept.map(function(r, i) {
@@ -1096,7 +1114,23 @@ function costToGp(costStr) {
 // Business value = a base building/location value (rolled once at generation,
 // stays fixed) + a multiple of the total inventory worth. Edit the inventory
 // and this recalculates — more/pricier stock raises the value, less lowers it.
-var INVENTORY_VALUE_MULTIPLIER = 5;
+var INVENTORY_VALUE_MULTIPLIER = 2;
+
+// DM-selectable prosperity tier — scales the base building value and how
+// MANY distinct items get stocked (a fixed count, not a % of the catalog).
+// The count must be fixed rather than a percentage: some catalogs are tiny
+// (a handful of rows) and some are enormous (Tunnels & Trolls' Blacksmith
+// carries 536 weapon/armor rows) — stocking a random 65-95% of "however many
+// rows happen to exist for this type" let inventory value swing from a few
+// hundred gp to six figures depending purely on catalog size, not on how
+// well-stocked a shop actually is. A fixed item count keeps a Modest shop's
+// value in the same few-thousand-gp neighborhood regardless of store type.
+var WEALTH_LEVELS = {
+  poor:    { label: "Poor",    baseMin: 300,   baseMax: 1200,  itemMin: 3,  itemMax: 6 },
+  modest:  { label: "Modest",  baseMin: 1600,  baseMax: 3000,  itemMin: 6,  itemMax: 12 },
+  wealthy: { label: "Wealthy", baseMin: 5000,  baseMax: 9000,  itemMin: 12, itemMax: 20 },
+  opulent: { label: "Opulent", baseMin: 12000, baseMax: 20000, itemMin: 20, itemMax: 35 }
+};
 function recomputeValue(shop) {
   var invGp = shop.inventory.reduce(function(sum, i) {
     return sum + costToGp(i.cost) * (i.qty || 1);
@@ -1117,8 +1151,10 @@ function updatePriceDisplay() {
 // =====================================================================
 var currentShop = null; // the shop currently on screen, being edited
 
-function buildShop(type, game) {
+function buildShop(type, game, wealth) {
   game = game || "DD";
+  wealth = WEALTH_LEVELS[wealth] ? wealth : "modest";
+  var tier = WEALTH_LEVELS[wealth];
   var isPostApoc = isPostApocGame(game);
   // fantasy-only for now; nuclearCitizen() (source's post-apoc citizen
   // generator, with mutations/tech level) hasn't been ported, so
@@ -1127,13 +1163,13 @@ function buildShop(type, game) {
   var name = businessName(type, game);
   var exterior = fixCaps(expand(isPostApoc ? "{exterior_pa}" : "{exterior}", descTables));
   var ambiance = fixCaps(expand(isPostApoc ? "{postapoc_ambiance}" : ("{" + type + "_ambiance}"), descTables));
-  var inventory = pickInventory(type, game);
+  var inventory = pickInventory(type, game, wealth);
   var ownerTitle = (isPostApoc ? PA_OWNER_TITLES[type] : OWNER_TITLES[type]) || "Owner";
 
   var shop = {
     id: "shop_" + Date.now() + "_" + Math.random().toString(36).slice(2,8),
-    type: type, game: game, name: name,
-    baseValue: randInt(50, 500), // building/location value; inventory value is added on top and recalculated live
+    type: type, game: game, name: name, wealth: wealth,
+    baseValue: randInt(tier.baseMin, tier.baseMax), // building/location value; inventory value is added on top and recalculated live
     price: 0, inventoryValueGp: 0,
     npc: npc, ownerTitle: ownerTitle,
     exterior: exterior, ambiance: ambiance, inventory: inventory, savedAt: null
@@ -1142,8 +1178,8 @@ function buildShop(type, game) {
   return shop;
 }
 
-function newShop(type, game) {
-  currentShop = buildShop(type, game);
+function newShop(type, game, wealth) {
+  currentShop = buildShop(type, game, wealth);
   recomputeValue(currentShop);
   renderCurrent();
 }
@@ -1255,7 +1291,7 @@ function renderCurrent() {
     '<div class="shop-name-row">' +
       '<input class="shop-name" style="background:transparent;border:none;font-family:inherit;width:100%;" value="' + escapeHtml(shop.name) + '" oninput="currentShop.name=this.value">' +
       '<span class="price" title="Base building value (' + shop.baseValue + ' gp) + inventory worth &times; ' + INVENTORY_VALUE_MULTIPLIER + '">' +
-        'Business Value:<br><span id="businessValueDisplay">' + shop.price.toLocaleString() + ' gp</span></span>' +
+        'Business Value (' + (WEALTH_LEVELS[shop.wealth] || WEALTH_LEVELS.modest).label + '):<br><span id="businessValueDisplay">' + shop.price.toLocaleString() + ' gp</span></span>' +
     '</div>' +
 
     '<div class="label">' + shop.ownerTitle + '</div>' +
