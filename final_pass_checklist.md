@@ -4,13 +4,14 @@ Everything below was intentionally shortened, approximated, or invented to get
 a working preview fast. None of it is "wrong" as a demo, but none of it should
 ship as-is. Grouped by what needs to happen to fix it.
 
-**Status as of the latest review:** sections A, B, and D are now resolved
-(races/hair, names, and dress/possessions all ported from real source data —
-see below). C, E, F, G, H, I are still open. The full original Wizardawn PHP
-source (146 files) is now available in `wizardawn-source/`, which is what
-made A/B/D resolvable — most of what's left in this doc is the same kind of
-"port it from source" work, not blocked on anything from you except I's
-downtime-economy numbers (those are new mechanics, not in the original app).
+**Status as of the latest review:** sections A, B, D, and E are now resolved
+(races/hair, names, dress/possessions, and business naming all ported from
+real source data — see below). C, F, G, H, I are still open. The full
+original Wizardawn PHP source (146 files) is now available in
+`wizardawn-source/`, which is what made A/B/D/E resolvable — most of what's
+left in this doc is the same kind of "port it from source" work, not
+blocked on anything from you except I's downtime-economy numbers (those are
+new mechanics, not in the original app).
 
 ---
 
@@ -86,28 +87,35 @@ downtime-economy numbers (those are new mechanics, not in the original app).
       (100/60/70/20/40/20%), matching `GFTCitizen()`'s `thing1`–`thing6`
       chain in `city_gn.php`.
 
-## E. Business Naming — ⬜ still open, one sub-item fixed
+## E. Business Naming — ✅ resolved for the 14 existing types
 
 - [x] ~~Tavern/Inn names had trailing mood words duplicating the prefix
       adjective~~ — **fixed** (the "Sleeping Serpent Flagon Growling" bug).
-- [ ] **Verify source pathway**: the naming logic I ported (`HUT2_CREATURE`,
-      `HUT2_ROLE`, `HUT3`, tavern/inn word banks) came from `wizardBusiness()`
-      in `city_fantasy.php` (the OSRIC pathway), not `GFTBusiness()` in
-      `city_gn.php` (the pathway the NPC generator is actually using). I
-      never fully read `GFTBusiness()`'s body past its signature — need to
-      check whether it has its own separate word banks before finalizing,
-      since right now NPCs and business names are technically from two
-      different rule sets stitched together.
-- [ ] **Word bank sizes trimmed**: creature list 24/98, role list 24/52,
-      generic adjective list 26/33.
-- [ ] **Blacksmith naming was invented**, not ported — I never located a
-      confirmed Blacksmith case in either `wizardBusiness()` or
-      `GFTBusiness()`'s source. Needs verification against source or an
-      explicit decision to keep it as new content.
-- [ ] **Only 3 of ~15+ business types built**: Tavern, Inn, Blacksmith done.
-      Still needed: Provisioner, Bowyer, Leatherworker, Tailor, Stables,
-      Carpenter, Alchemist, Baker, Library, Jeweler, Music, Church, Bank,
-      Guardhouse, and guild halls (Fighters/Wizards/Thieves/Rangers/Assassins/Bards).
+- [x] **Verify source pathway**: confirmed `GFTBusiness()` in `city_gn.php`
+      (lines ~424-770) exists independently of `wizardBusiness()`/
+      `city_fantasy.php`, with its own word banks and per-type control
+      flow. All 14 business types now ported against it directly, not
+      `wizardBusiness()`.
+- [x] **Word bank sizes untrimmed**: creature list 101/101, role list
+      52/52, adjective list 33/33 (all shared `HUT2_CREATURE`/
+      `HUT2_ROLE`/`HUT3`).
+- [x] **Blacksmith naming confirmed real**, not invented — `GFTBusiness()`
+      has its own genuine Blacksmith case.
+- [x] **All 14 business types ported**, preserving GFTBusiness's real
+      per-type control flow rather than one uniform template: most types
+      override the shared adjective bank 70% of the time with a
+      type-specific one (`HUT3_OVERRIDES`); Bowyer/Stables instead
+      override the shared creature/role bank (Bowyer 70%, Stables
+      unconditionally); Church is structurally different — hut1/hut2/hut3
+      all unconditionally overridden, hut1 rendered as "of X" rather than
+      a trailing noun; Inn gets a literal `(Nsp per night)` price suffix.
+      Leatherworker has no override at all — pure shared banks, as source.
+      Verified with a Node harness across all 14 types, no errors.
+- [ ] **Not yet in scope, deliberately**: Jeweler, Bank, Guardhouse, and
+      guild halls exist in `GFTBusiness()` source (`type==13`, `type==16`,
+      `type>16`) but have no UI option or `STORE_LOOKUP`/`TYPE_WORDS`
+      entry in the app at all. New business types, not a fidelity gap in
+      the 14 that exist.
 
 ## F. Description Generator (exterior/ambiance) — ⬜ still open, unchanged
 
@@ -202,23 +210,17 @@ the same way:
 
 ## What I'd actually prioritize for *this* generator specifically
 
-**Update:** A, B, and D (races/hair, names, possessions) are now done — see
-above. The 14 business types and the Settlements tab (multi-building
-generation) also already shipped, ahead of where this section originally
-assumed. Re-prioritizing what's left:
+**Update:** A, B, D, and E (races/hair, names, possessions, business naming)
+are now done — see above. The 14 business types and the Settlements tab
+(multi-building generation) also already shipped, ahead of where this
+section originally assumed. Re-prioritizing what's left:
 
-1. **E's remaining sub-items** — the naming/description word banks for the
-   11 non-original (Tavern/Inn/Blacksmith) business types are still original
-   content, not verified against `GFTBusiness()` in `city_gn.php` (which we
-   now know exists independently with its own banks, including a real,
-   non-invented Blacksmith case — confirmed this session). Porting those 11
-   against source is the next highest-leverage item.
-2. **F (description word bank depth + coverage)** — same source now
-   available (`descriptions.php`, `atmosphere.php`), same "only 3 types
-   have real ambiance banks" gap.
-3. **G's stock%/tier fidelity** — lower urgency; the current random range
+1. **F (description word bank depth + coverage)** — the source
+   (`descriptions.php`, `atmosphere.php`) is available; same "only 3 types
+   have real ambiance banks" gap E just got fixed for naming.
+2. **G's stock%/tier fidelity** — lower urgency; the current random range
    works fine for play, just isn't "correct."
-4. **I's placeholders** — only urgent if you plan to actually run the
+3. **I's placeholders** — only urgent if you plan to actually run the
    downtime economy at the table soon; otherwise fine to leave as-is.
 
 C (trait weighting fidelity) and H (settlement scaling — note: the

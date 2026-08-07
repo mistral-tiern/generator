@@ -112,16 +112,20 @@ item suggestions).
   probability gates (dedicated pool at its real hit chance, else a generic
   gendered fallback) instead of always using the dedicated pool. Affects
   both shop owners and hired managers, since both call `generateNPC()`.
-- [ ] **Business-naming word banks are unverified against source for 11 of
-  14 business types.** Confirmed this session that `GFTBusiness()` in
-  `city_gn.php` *does* exist independently with its own word banks
-  (not shared with `wizardBusiness()`/`city_fantasy.php`), and that its
-  Blacksmith case is real, not invented — but Tavern/Inn/Blacksmith are
-  the only 3 types actually ported against it. The other 11 business
-  types' naming/description banks are still original content, not
-  checked against `GFTBusiness()` at all. Word bank sizes for the ported
-  3 are also trimmed from source (creature list 24/98, role list 24/52,
-  adjective list 26/33).
+- [x] ~~Business-naming word banks are unverified against source~~ —
+  **resolved for all 14 existing business types.** Ported against the
+  real `GFTBusiness()` (`city_gn.php`, lines ~424-770), confirmed to
+  exist independently of `wizardBusiness()`/`city_fantasy.php` with its
+  own word banks — including a genuine, non-invented Blacksmith case.
+  Word banks untrimmed to full source size (creature 101, role 52,
+  adjective 33), and its real per-type control flow preserved rather
+  than templated: most types 70%-override the shared adjective bank with
+  a type-specific one, Bowyer/Stables override the creature/role bank
+  instead, Church is structurally different (fully overridden, "of X"
+  phrasing), Inn gets a `(Nsp per night)` suffix. Post-apocalyptic naming
+  (`paBusinessName()`) was already ported separately and is unaffected.
+  Still new scope, not a fidelity gap: Jeweler/Bank/Guardhouse/guild
+  halls exist in source but have no UI/business-type entry in the app.
 - [x] ~~Only `game='DD'` inventory is wired up~~ — **resolved.** Added a
   Setting/Ruleset control driven by the real `menus.csv` gating (see
   below): Fantasy now offers D&D-Style (`DD`, unchanged) and Tunnels &

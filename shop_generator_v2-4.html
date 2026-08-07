@@ -855,32 +855,64 @@ function generateNPC(raceHint) {
 
 // =====================================================================
 // BUSINESS NAMING — 14 business types, each backed by real inventory
-// data (STORE_LOOKUP below). Tavern/Inn/Blacksmith ported closest to
-// source; the other 11 are new word banks in the same style (checklist
-// item E still flags these as unverified against GFTBusiness's own
-// source arrays, which were never confirmed).
+// data (STORE_LOOKUP below). Ported against GFTBusiness() in
+// wizardawn-source/functions/city_gn.php (lines ~424-770), word banks
+// untrimmed to full source size (creature 101, role 52, adjective 33) and
+// GFTBusiness's actual per-type control flow preserved below — it isn't a
+// uniform template (Church is structurally different, several types
+// override hut2/hut3, etc).
 // =====================================================================
-var HUT2_CREATURE = ["Badger","Basilisk","Bear","Boar","Bugbear","Bull","Dragon","Drake","Dwarf","Elf","Goblin","Griffin","Hobgoblin","Kobold","Lion","Ogre","Orc","Owlbear","Serpent","Stag","Troll","Unicorn","Wolf","Wyvern"];
-var HUT2_ROLE = ["Adventurer","Axe","Bandit","Baron","Berserker","Coin","Dagger","Dancer","Hammer","Helm","Hunter","King","Knight","Mace","Mage","Prince","Princess","Ranger","Sword","Thief","Warrior","Whip","Witch","Wizard"];
-var HUT3 = ["Steel","Wooden","Iron","Bronze","Silver","Gold","Copper","Wild","Sleeping","Lone","Savage","Twin","Old","Dark","Wealthy","Cursed","Elegant","Great","Smiling","Keen","Quiet","Cheap","Fiery","Hidden","Mighty","New"];
-var TAVERN_MOOD = ["Drunken","Leaping","Sleepy","Crazy","Angry","Dancing","Bloody","Running","Screaming","Growling","Mighty","Laughing","Broken","Wild"];
+var HUT2_CREATURE = ["Badger","Basilisk","Bear","Boar","Bufallo","Bugbear","Bull","Centaur","Chimera","Cloud Giant","Crocodile","Cyclops","Demon","Devil","Dog","Dragon","Drake","Dryad","Dwarf","Elephant","Elf","Ettin","Fire Giant","Fish","Frog","Frost Giant","Gargoyle","Genie","Gnoll","Gnome","Goblin","Gorgon","Griffin","Hag","Hobbit","Harpy","Hell Hound","Hill Giant","Hippogriff","Hippopotamus","Hobling","Hobgoblin","Horse","Hydra","Imp","Jackal","Kobold","Kraken","Leprechaun","Lion","Lizard","Manticore","Golem","Minotaur","Mule","Naga","Nixie","Nymph","fruglum","Ogre","Orke","Witch","Pegasus","Phoenix","Pixie","Giant Worm","Greyling","Banshee","Scorpion","Serpent","Reaper","Snake","Sphinx","Spider","Sprite","Stone Giant","Storm Giant","Succubus","Tiger","Titan","Toad","Morlock","Triton","Troglodite","Troll","Turtle","Unicorn","Walrus","Weasel","Werewolf","Whale","Wisp","Wolf","Wolverine","Wyrm","Wyvern","Zorn","Yeti","Lich","Ghost","Demon"];
+var HUT2_ROLE = ["Adventurer","Axe","Bandit","Barbarian","Bard","Baron","Berserker","Claw","Club","Coin","Conjurer","Dagger","Dancer","Druid","Dutchess","Eye","Fighter","Hammer","Helm","Hermit","Hunter","Idol","Jester","King","Knife","Knight","Mace","Mage","Magician","Monk","Nail","Pirate","Priest","Prince","Princess","Prophet","Queen","Ranger","Scout","Shield","Singer","Sorcerer","Sword","Thief","Tracker","Tree","Warlock","Warrior","Whip","Witch","Wizard","Staff"];
+var HUT3 = ["Steel","Wooden","Iron","Bronze","Silver","Gold","Copper","Stone","Platinum","Wild","Sleeping","Lone","Savage","Scarlett","Twin","Old","Dark","Needy","Wealthy","Common","Cursed","Elegant","Great","Smiling","Keen","Needy","Quiet","Jealous","Cheap","Fiery","Hidden","Mighty","New"];
 
-// business type -> word bank of type-nouns (the "hut1" slot)
+// per-type hut3 (mood/material adjective) overrides — each applied 70% of
+// the time per source's `mt_rand(1,100) > 30` gate; the other 30% falls
+// through to the base HUT3 adjective list above
+var HUT3_OVERRIDES = {
+  tavern:        ["Drunken","Leaping","Sleepy","Crazy","Angry","Dancing","Bloody","Running","Screaming","Growling","Mighty","Laughing","Broken","Wild"],
+  inn:           ["Weary","Restful","Sleepy","Cozy","Tired","Restless","Dreamy","Silent","Calm","Faint","Yawning","Dead","Tuckered","Dozing","Tranquil"],
+  tailor:        ["Wooly","Knitted","Needled","Stitched","Hooded","Dressed","Cloaked","Robed"],
+  alchemist:     ["Brewed","Boiled","Stirred","Fermented","Concocted","Brewed"],
+  blacksmith:    ["Melted","Steel","Iron","Dented","Armored","Metal","Smelted","Heated"],
+  carpenter:     ["Oak","Cedar","Pine","Ash","Maple","Birch","Mahogany","Spruce"],
+  baker:         ["Delightful","Tasty","Homemade","Oven Fresh","Toasty","Yummy","Savory","Sweet","Hungry","Starving"],
+  provisioner:   ["Adventurous","Impish","Treasured","Royal","Traveling","Cheap","Golden","Grand"],
+  library:       ["Cryptic","Ancient","Runic","Mysterious","Wizardly","Thinking","Royal","Scribbled"],
+  music:         ["Singing","Humming","Harmonic","Lyrical","Choral","Melodic","Harmonious","Tuneful"]
+  // leatherworker and stables have no hut3 override in source — always base HUT3
+};
+
+// bowyer overrides the base creature/role hut2 70% of the time; stables
+// overrides it unconditionally (no rand gate in source)
+var BOWYER_HUT2 = ["Shot","Arrow","Bolt","Target","Trueshot","Aim","Feather","Tipped"];
+var STABLES_HUT2 = ["Beast","Bear","Boar","Horse","Steed","Rider","Mule","Pony"];
+
+// church is structurally different in source: hut1/hut2/hut3 are all
+// unconditionally overridden (no base-bank fallback, no rand gate), and
+// hut1 is prefixed "of " rather than being the trailing type-noun
+var CHURCH_HUT2 = ["Temple","Church","Abbey","Shrine","Sanctuary","Temple","Church","House"];
+var CHURCH_HUT3 = ["Holy","Sacred","Virtuous","Devoted","Devout","Divine","Faithful","Glorious","Righteous","Saintly","Sanctified"];
+var CHURCH_HUT1 = ["the Gods","the Creator","the Father","the Mother","the Almighty","the Lord","the Goddess","the Maker","Devotion","Praise","Worship"];
+
+// business type -> word bank of type-nouns (the "hut1" slot). Duplicate
+// entries (e.g. "Inn" x5, "Blacksmith" x2) are preserved verbatim from
+// source as intentional weighting, not cleaned up. church has no hut1
+// bank here — see CHURCH_HUT1 above.
 var TYPE_WORDS = {
   tavern:        ["Alehouse","Tavern","Saloon","Bar","Stein","Keg","Barrel","Flagon","Mug"],
-  inn:           ["Inn","Hostel","Lodge","Boarding House","Cabin"],
-  blacksmith:    ["Forge","Smithy","Ironworks","Anvil","Foundry"],
-  alchemist:     ["Apothecary","Alchemist's Shop","Tincture House","Elixir Emporium","Herbalist"],
-  baker:         ["Bakery","Bake House","Bread Shop","Ovens"],
-  bowyer:        ["Bowyer","Fletcher's Shop","Archery Supply","Bow & Arrow"],
-  carpenter:     ["Carpentry","Woodshop","Joinery","Timber Works"],
-  church:        ["Temple","Shrine","Chapel","Sanctuary","House of Worship"],
-  leatherworker: ["Tannery","Leatherworks","Hide Shop","Saddlery"],
-  library:       ["Library","Scriptorium","Archive","Reading Room"],
-  music:         ["Music Shop","Instrument Maker","Lute & Horn","Songhouse"],
-  provisioner:   ["Provisioner","General Store","Trading Post","Mercantile","Supply Shop"],
-  stables:       ["Stables","Livery","Horse Yard","Stalls"],
-  tailor:        ["Tailor Shop","Seamstress","Clothier","Garment House"]
+  inn:           ["Inn","Inn","Inn","Inn","Inn","Hostel","Lodge","Boarding House","Cabin"],
+  blacksmith:    ["Anvil","Smithy","Forge","Hammer","Blacksmith","Blacksmith","Smithy","Arms & Armor","Weapons","Shields"],
+  alchemist:     ["Herbalist","Herb Shoppe","Alchemist","Potion Shoppe","Elixirs","Alchemy Shoppe","Cauldron"],
+  baker:         ["Baked Goods","Bakery","Bake Shoppe","Foods","Food Market"],
+  bowyer:        ["Bows","Bowyer Shoppe","Fletcher Shoppe","Bow Shoppe","Archery Shoppe","Bow Crafters","Archery Supplies","Archer Store","Bow & Arrow Dealer"],
+  carpenter:     ["Carpenter","Wood Shoppe","Carvings","Woodworking","Carpentry Shoppe","Wooden Crafts"],
+  leatherworker: ["Leatherworking","Tanning Shoppe","Leather Market","Stitched Hide","Rawhide","Thick Skins"],
+  library:       ["Books","Writings","Library","Atheneum","Scrolls","Book Shoppe"],
+  music:         ["Music Shoppe","Instruments","Instrument Crafters","Drummer","Lute Makers","Stringed Instruments"],
+  provisioner:   ["Pawn","Pawn Shoppe","Provisioner","Supplies","Equipment","Goods"],
+  stables:       ["Stables","Pets","Animals","Stables","Barn Yard","Animal Trainer","Stables"],
+  tailor:        ["Tailor","Tailor Shoppe","Sewing Shoppe","Fine Cloth","Clothing Shoppe","Dress Shoppe","Dresses"]
 };
 var OWNER_TITLES = {
   tavern: "Bartender", inn: "Innkeeper", blacksmith: "Blacksmith", alchemist: "Alchemist",
@@ -917,10 +949,28 @@ function businessName(type, game) {
 }
 
 function fantasyBusinessName(type) {
+  var prefix = chance(70) ? "The " : "";
+
+  if (type === "church") {
+    // source: hut2/hut3/hut1 all unconditionally overridden, no base-bank fallback
+    var churchHut2 = pick(CHURCH_HUT2);
+    var churchHut3 = pick(CHURCH_HUT3);
+    var churchHut1 = "of " + pick(CHURCH_HUT1);
+    return prefix + churchHut3 + " " + churchHut2 + " " + churchHut1;
+  }
+
   var hut2 = chance(70) ? pick(HUT2_CREATURE) : pick(HUT2_ROLE);
+  if (type === "bowyer" && chance(70)) hut2 = pick(BOWYER_HUT2);
+  if (type === "stables") hut2 = pick(STABLES_HUT2); // unconditional in source
+
+  var hut3 = pick(HUT3);
+  var override = HUT3_OVERRIDES[type];
+  if (override && chance(70)) hut3 = pick(override);
+
   var hut1 = pick(TYPE_WORDS[type] || TYPE_WORDS.provisioner);
-  var hut3 = (type === "tavern" && chance(70)) ? pick(TAVERN_MOOD) : pick(HUT3);
-  return (chance(70) ? "The " : "") + hut3 + " " + hut2 + " " + hut1;
+  if (type === "inn") hut1 += " (" + randInt(2, 7) + "sp per night)";
+
+  return prefix + hut3 + " " + hut2 + " " + hut1;
 }
 
 // Ported from PABusiness() in functions/city_post_apocalyptic.php: hut2
