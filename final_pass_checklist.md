@@ -118,12 +118,28 @@ downtime-economy numbers (those are new mechanics, not in the original app).
       roof, feature, sound, smell, etc.) — fine for a demo, will repeat
       noticeably at real usage volume. Worth 2–3x'ing each list.
 
-## G. Inventory — ⬜ still open, unchanged (new features built around it, not into it)
+## G. Inventory
 
-- [ ] **Only `game='DD'` is wired up.** No support yet for TT (Tunnels &
-      Trolls), or the sci-fi/post-apoc codes (MF/PA/BU) — needed once we're
-      not just targeting the default fantasy ruleset. This now also affects
-      the item-suggestion dropdown, which is DD-only for the same reason.
+- [x] ~~Only `game='DD'` is wired up~~ — **resolved.** A Setting/Ruleset
+      selector now threads a real game code (`DD`/`TT`/`BU`/`MF`/`PA`)
+      through `pickInventory()`/`fullCatalogPool()` (both switched from
+      exact `game===code` matching to substring `gameMatches()`, mirroring
+      source's `game LIKE '%CODE%'`, since post-apoc rows carry combo tags
+      like `MFxPA`/`MFxBUxPA`). The item-suggestion dropdown picks this up
+      for free since it calls `fullCatalogPool()` with the same `shop.game`.
+      Type-list gating is per-ruleset, not just per-genre: Tunnels & Trolls
+      only offers the 7 store types with real TT rows; post-apoc's Mechanic
+      and Robot types only appear under Broken Urthe, since the catalog has
+      zero MF/PA rows for either (checked directly against store-items.csv).
+      Still open: `nuclearCitizen()` (post-apoc's separate citizen
+      generator with mutations/tech level) isn't ported, so post-apoc shop
+      owners use the fantasy NPC generator as a placeholder; post-apoc
+      exterior/ambiance is one generic invented template for all 9 types
+      rather than fantasy's per-type banks; the era/tier column
+      (`Simple`/`Complex`/`Deluxe` for TT, `hi`/`low`/`both` for post-apoc)
+      still isn't used to filter stock, so TT/post-apoc shops can generate
+      tech-tier-inappropriate items — see the tier/quality bullet below,
+      which now also applies to the new rulesets, not just fantasy.
 - [ ] **Stock % is a made-up flat random range (65–95%)**, not derived from
       anything. Original likely ties `$stock` to settlement size/wealth —
       need to find where `$stock` actually gets set in the calling code
@@ -136,11 +152,29 @@ downtime-economy numbers (those are new mechanics, not in the original app).
       vehicle/robot items have `Hits:X/Str:Y` stats, neither of which surface
       in the current inventory display.
 
-## H. Not Yet In Scope — ⬜ still open, unchanged
+## H. Not Yet In Scope
 
-- [ ] **Menus/navigation isn't wired in at all.** `menus.csv` defines which
-      game systems each generator applies to; the generator always assumes
-      the default fantasy ruleset regardless.
+- [x] ~~Menus/navigation isn't wired in at all~~ — **resolved**, using the
+      real `menus.csv` export rather than guesswork. It confirmed source
+      has three separate Fantasy Settlements generators per ruleset
+      (`tool_wtown.php`: OSRIC/AD&D 1979; `tool_ftown.php`: Labyrinth
+      Lord/D&D 1981/Basic Fantasy/Swords & Wizardry/generic Fantasy/Swords
+      & Six-Siders; `tool_ttown.php`: Tunnels & Trolls 5e/7e/Deluxe), but
+      `GFTBusiness()`/`wizardBusiness()` both hardcode `game='DD'`
+      regardless of which reached them — so the app's "D&D-Style" ruleset
+      correctly covers all of `tool_wtown.php` + `tool_ftown.php`, and only
+      real Tunnels & Trolls needed its own option. Post-apoc mirrors
+      `tool_mtown.php`/`PABusiness()`: Mutant Future and Broken Urthe each
+      get a dedicated branch (word banks, creature lists, and — for
+      Stables — an unconditional hut2 override, all ported from
+      `city_post_apocalyptic.php`); everything else in menus.csv's "Other"
+      Game Choice category (Gamma World, Metamorphosis Alpha, Millenniums &
+      Mutations, Necropalyx, Space Ryft) falls into the generic PA branch,
+      matching source — none of those rulesets has its own settlement
+      generator either. The site-navigation/link parts of menus.csv
+      (Links, Supplements, Data Files, Free Game rows) have no equivalent
+      in this single-page app and weren't ported — only the Game Choice
+      gating structure was relevant here.
 - [ ] **Single building only** — the real goal (per your stated scope) is
       whole settlements with multiple buildings tied together by
       `city_size`/`economy`, which this generator doesn't attempt yet.

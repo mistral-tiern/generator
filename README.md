@@ -122,12 +122,39 @@ item suggestions).
   checked against `GFTBusiness()` at all. Word bank sizes for the ported
   3 are also trimmed from source (creature list 24/98, role list 24/52,
   adjective list 26/33).
-- [ ] **Only `game='DD'` inventory is wired up.** No Tunnels & Trolls or
-  sci-fi/post-apocalyptic support yet, despite that data existing in the
-  source catalog.
-- [ ] **`menus.csv` (site navigation / game-system gating) isn't wired
-  into anything.** The generator always assumes the default fantasy
-  ruleset.
+- [x] ~~Only `game='DD'` inventory is wired up~~ — **resolved.** Added a
+  Setting/Ruleset control driven by the real `menus.csv` gating (see
+  below): Fantasy now offers D&D-Style (`DD`, unchanged) and Tunnels &
+  Trolls (`TT`, restricted to the 7 store types the TT catalog actually
+  covers — Blacksmith/Bowyer/Carpenter/Leatherworker/Provisioner/
+  Stables/Tailor), and a new Post-Apocalyptic setting offers Broken
+  Urthe/Mutant Future/Generic Post-Apocalyptic, each with its own
+  `PABusiness()`-ported naming logic and item catalog (`BU`/`MF`/`PA`
+  game codes, including the combo-tagged rows like `MFxPA`). Mechanic
+  and Robot are Broken-Urthe-only in the catalog (no MF/PA rows exist)
+  so they're only offered under that ruleset. Post-apoc shop owners
+  still use the fantasy `generateNPC()` — `nuclearCitizen()`, source's
+  separate post-apoc citizen generator with mutations/tech level, isn't
+  ported — and post-apoc exterior/ambiance text is one generic invented
+  template shared across all 9 types rather than fantasy's richer
+  per-type banks. The Settlements tab remains fantasy-only (unchanged,
+  see its own SV_TABLE comment).
+- [x] ~~`menus.csv` (site navigation / game-system gating) isn't wired
+  into anything~~ — **resolved.** You provided the real export. It
+  confirmed the source actually has three separate Fantasy Settlements
+  generators keyed to different rulesets (`tool_wtown.php`: OSRIC/AD&D
+  1979; `tool_ftown.php`: Labyrinth Lord/D&D 1981/Basic Fantasy/Swords &
+  Wizardry/generic Fantasy/Swords & Six-Siders; `tool_ttown.php`:
+  Tunnels & Trolls 5e/7e/Deluxe) — but `GFTBusiness()`/`wizardBusiness()`
+  both hardcode `game='DD'` regardless of which of those rulesets
+  reached them, which is why "D&D-Style" above covers all of
+  `tool_wtown.php` + `tool_ftown.php`'s rulesets and only actual Tunnels
+  & Trolls gets its own option. Post-apoc mirrors `tool_mtown.php`/
+  `PABusiness()` the same way: Mutant Future and Broken Urthe each have
+  a dedicated branch, everything else in menus.csv's "Other" Game Choice
+  category (Gamma World, Metamorphosis Alpha, etc.) falls into the
+  generic PA branch, since none of those has its own settlement
+  generator in source either.
 
 ### Real gaps, lower urgency
 - [ ] Trait-weighting exactness (several personality trait arrays use

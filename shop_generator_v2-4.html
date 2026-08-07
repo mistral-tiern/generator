@@ -240,23 +240,21 @@
 <div id="generatorView">
 
 <div class="controls">
-  <select id="typeSelect" style="font-family:inherit; font-size:13px; padding:9px 12px; border:1px solid var(--rule); border-radius:2px; background:var(--parchment-dark);">
-    <option value="tavern">Tavern</option>
-    <option value="inn">Inn</option>
-    <option value="blacksmith">Blacksmith</option>
-    <option value="alchemist">Alchemist</option>
-    <option value="baker">Baker</option>
-    <option value="bowyer">Bowyer</option>
-    <option value="carpenter">Carpenter</option>
-    <option value="church">Church</option>
-    <option value="leatherworker">Leatherworker</option>
-    <option value="library">Library</option>
-    <option value="music">Music Shop</option>
-    <option value="provisioner">Provisioner</option>
-    <option value="stables">Stables</option>
-    <option value="tailor">Tailor</option>
+  <select id="settingSelect" onchange="onSettingChange()" style="font-family:inherit; font-size:13px; padding:9px 12px; border:1px solid var(--rule); border-radius:2px; background:var(--parchment-dark);">
+    <option value="fantasy">Fantasy</option>
+    <option value="postapoc">Post-Apocalyptic</option>
   </select>
-  <button class="primary" onclick="newShop(document.getElementById('typeSelect').value)">Generate</button>
+  <select id="fantasyRulesetSelect" onchange="onSettingChange()" style="font-family:inherit; font-size:13px; padding:9px 12px; border:1px solid var(--rule); border-radius:2px; background:var(--parchment-dark);">
+    <option value="DD">D&amp;D-Style (OSRIC / Basic / Labyrinth Lord / S&amp;W)</option>
+    <option value="TT">Tunnels &amp; Trolls</option>
+  </select>
+  <select id="paRulesetSelect" onchange="onSettingChange()" style="display:none; font-family:inherit; font-size:13px; padding:9px 12px; border:1px solid var(--rule); border-radius:2px; background:var(--parchment-dark);">
+    <option value="BU">Broken Urthe</option>
+    <option value="MF">Mutant Future</option>
+    <option value="PA">Generic Post-Apocalyptic</option>
+  </select>
+  <select id="typeSelect" style="font-family:inherit; font-size:13px; padding:9px 12px; border:1px solid var(--rule); border-radius:2px; background:var(--parchment-dark);"></select>
+  <button class="primary" onclick="newShop(document.getElementById('typeSelect').value, currentGameCode())">Generate</button>
 </div>
 <div class="controls secondary">
   <button onclick="exportAll()">Export All Saved Shops</button>
@@ -397,6 +395,28 @@ var descTables = {
   ],
   flowers: ["red geraniums", "wild thyme", "faded marigolds", "trailing ivy"],
   exterior: ["{stories}, {material} building with a {roof} roof, {condition}. {exterior_feature}"],
+
+  // Post-apocalyptic exterior/ambiance — generic across all PA business
+  // types (unlike the fantasy per-type sound/smell/light/crowd banks
+  // below), since source has no per-type ambiance text to port from;
+  // this is invented flavor, same as the fantasy exterior/ambiance banks.
+  material_pa: ["rusted corrugated tin", "cracked pre-war concrete", "scavenged sheet metal", "weathered plastic paneling", "salvaged shipping-container steel"],
+  condition_pa: ["patched with mismatched scrap", "sagging on a bent frame", "reinforced with scavenged rebar", "scorched but still standing", "held together with wire and hope"],
+  roof_pa: ["tarp-and-scrap", "rusted corrugated", "salvaged solar-panel", "sandbagged flat"],
+  exterior_feature_pa: [
+    "A hand-lettered sign warns off looters.",
+    "A generator hums somewhere out of sight.",
+    "Razor wire loops along the roofline.",
+    "A rack of scavenged parts leans against one wall.",
+    "Faded pre-war lettering is still visible under the grime.",
+    "A guard dog (or something like one) watches from the doorway."
+  ],
+  exterior_pa: ["{stories}, {material_pa} building with a {roof_pa} roof, {condition_pa}. {exterior_feature_pa}"],
+  postapoc_sound: ["a generator's steady drone", "the clank of scavenged metal", "static crackling from an old radio", "haggling over prices in the next room"],
+  postapoc_smell: ["motor oil and rust", "scorched metal", "stale recycled air", "chemical antiseptic"],
+  postapoc_light: ["a single caged bulb overhead", "sunlight through a cracked skylight", "the flicker of a jury-rigged lamp"],
+  postapoc_crowd: ["A wary customer counts out scrip at the counter.", "The place is empty but for the owner, watching the door.", "A couple of regulars trade rumors in the corner."],
+  postapoc_ambiance: ["The place carries {postapoc_sound}, the air thick with {postapoc_smell}. {postapoc_light}. {postapoc_crowd}"],
 
   tavern_sound: ["the low murmur of drinking songs", "raucous laughter from a dice game in the corner", "the clatter of tankards striking wood", "a lute player working through a familiar tune"],
   tavern_smell: ["spilled ale and pipe smoke", "roasting meat and old sawdust", "wood smoke and sour wine"],
@@ -875,10 +895,74 @@ var BUSINESS_LABELS = {
   provisioner: "Provisioner", stables: "Stables", tailor: "Tailor"
 };
 
-function businessName(type) {
+// Post-apocalyptic business types (source: PABusiness() in
+// functions/city_post_apocalyptic.php, types 1,2,3,4,5,6,7,10,11 — Junk(8)
+// and Bank(9) exist in source but aren't exposed as a UI option, same
+// "new scope, not a fidelity gap" situation as Jeweler/Bank/Guardhouse on
+// the fantasy side). Owner titles are our own invention (source has no
+// per-type title concept), same as the fantasy OWNER_TITLES above.
+var PA_OWNER_TITLES = {
+  military: "Quartermaster", bar: "Bartender", patailor: "Tailor",
+  medical: "Doctor", stable: "Stable Master", vehicle: "Dealer",
+  supplies: "Trader", mechanic: "Mechanic", robot: "Technician"
+};
+var PA_BUSINESS_LABELS = {
+  military: "Army Surplus", bar: "Bar", patailor: "Tailor",
+  medical: "Doctor", stable: "Stables", vehicle: "Vehicle Shop",
+  supplies: "Supplies", mechanic: "Mechanic", robot: "Robotics"
+};
+
+function businessName(type, game) {
+  return isPostApocGame(game) ? paBusinessName(type, game) : fantasyBusinessName(type);
+}
+
+function fantasyBusinessName(type) {
   var hut2 = chance(70) ? pick(HUT2_CREATURE) : pick(HUT2_ROLE);
   var hut1 = pick(TYPE_WORDS[type] || TYPE_WORDS.provisioner);
   var hut3 = (type === "tavern" && chance(70)) ? pick(TAVERN_MOOD) : pick(HUT3);
+  return (chance(70) ? "The " : "") + hut3 + " " + hut2 + " " + hut1;
+}
+
+// Ported from PABusiness() in functions/city_post_apocalyptic.php: hut2
+// defaults to a game-dependent creature-name list, hut3 to a shared
+// 33-word adjective list, and each type provides its own hut1 noun list
+// plus (for some types) a ~70%-chance override of hut2 and/or hut3.
+// Stables is the one type that unconditionally overrides hut2 (no chance
+// gate in source). Final assembly mirrors fantasy: 70% "The " prefix +
+// hut3 + " " + hut2 + " " + hut1.
+var PA_HUT2_CREATURE_MF = ["Accipitoid","Android","Ant","Ape","Apeman","Baboon","Bat","Bat","Bear","Beast","Beetle","Bird","Boar","Camel","Canisoid","Castoroid","Catfish","Centipede","Cephalopoid","Chameleon","Charger","Chicken","Chitterling","Cobra","Cockroachoid","Coyote","Crab","Crocodile","Cyborg","Dog","Domer","Electrophant","Elephant","Eloi","Feeder","Ferret","Fishmen","Fungoid","Gecko","Goat","Goliath","Grizzly","Grub","Hawk","Hemofowl","Horse","Insect","Insectoid","Jellyfish","Kamata","Kanga","Kelper","Lasher","Leaper","Leech","Lion","Lizard","Lobstrosity","Mansquito","Mant","Medusoid","Meerkat","Morlock","Mule","Narcolep","Octopus","Ooze","Panther","Pantheroid","Pigmen","Piranha","Porcine","Puffball","Pufferoid","Python","Quench","Quicken","Rabboxen","Rat","Rattler","Rhagodessa","Rhinoceros","Rockfish","Salamander","Scorpion","Scuirinoid","Serpentoid","Shark","Sheep","Shrew","Slasher","Sloth","Slunk","Snake","Spider","Spidergoat","Sporer","Squid","Stalker","Sturgeon","Suidoid","Tiger","Toad","Tripod","Tuatara","Ventrilovine","Wailer","Weasel","Whale","Wolf","Worm","Wyrm","Xeno","Zunicorn"];
+var PA_HUT2_CREATURE_DEFAULT = ["Aklasaurus","Algorum","Antlerg","Ape","Atlantix","Attoid","Babuman","Barbuga","Barvul","Battanor","Beast","Beetle","Bird","Boargul","Boghound","Bruk","Bull","Burtos","Canna","Centidon","Chikunz","Coboar","Crabman","Crox","Cruler","Cyclops","Dracoshark","Drakorian","Draygun","Draygur","Dredlasaur","Dydra","Eleczard","Fish","Frogigator","Fruglum","Fungoid","Gargoil","Gargul","Gatordon","Giant","Gillard","Gorilus","Grizzly","Gublyn","Hawkan","Hoppler","Horsemen","Hound","Hydra","Insectoid","Intruder","Lamprey","Lion","Lizard","Lobber","Lokist","Mantaur","Marner","Mermen","Mirroco","Morlock","Mucktupus","Muskito","Mysticul","Ogre","Ooze","Ostradon","Porcubus","Radigator","Raxumar","Razorwhale","Rhondaran","Ripper","Rutan","Scortzer","Serpent","Shark","Sharktacle","Sharz","Sheel","Shellox","Shockeel","Shrukar","Slime","Sludgow","Sluskur","Snake","Snakemen","Spider","Sulk","Tentacle","Thorntus","Tiger","Tinora","Torus","Trapjaw","Troll","Turteldon","Tusker","Unicorn","Unihare","Vambear","Vampere","Weeder","Wisp","Wolf","Worm","Wrapper","Wulog","Xorbucon","Zombie","Zormites"];
+var PA_HUT3_DEFAULT = ["Steel","Wooden","Twisted","Rusty","Glowing","Radiated","Junky","Crazy","Eerie","Wild","Sleeping","Lone","Savage","Nuclear","Twin","Old","Dark","Needy","Wealthy","Common","Mutated","Slimy","Great","Smiling","Toxic","Gamma","Quiet","Jealous","Cheap","Broken","Hidden","Welded","New"];
+var PA_HUT3_ROWDY = ["Drunken","Leaping","Sleepy","Crazy","Angry","Dancing","Bloody","Running","Screaming","Growling","Mighty","Laughing","Broken","Wild"];
+var PA_TYPE_TABLE = {
+  military: { hut1: ["Army Surplus","Military Supply","Gun Shop","Weapon Wholesale","Soldier Gear","Arms & Armor","Army Depot","Hunting Shop","Firearms"],
+              hut2: ["Outfitters","Sniper","Warrior","Soldier","Mercenary","Captain","Commando","General","Marine"], hut3: PA_HUT3_ROWDY },
+  bar:      { hut1: ["Club","Bar","Bar","Bar"], hut3: PA_HUT3_ROWDY },
+  patailor: { hut1: ["Tailor","Tailor Shop","Sewing Shop","Fine Cloth","Clothing Shop","Dress Shop","Dresses"],
+              hut3: ["Wooly","Knitted","Needled","Stitched","Hooded","Dressed","Cloaked","Robed"] },
+  medical:  { hut1: ["Medicine","Doctor","Physician","Hospital","Drug Store","Healer","Medic"],
+              hut3: ["Healing","Soothing","Nursing","Curing","Stitching","Drugged"] },
+  stable:   { hut1: ["Stables","Pets","Animals","Stables","Barn Yard","Animal Trainer","Stables"],
+              hut2Always: true }, // hut2 always overridden in source (BU vs. default list), no chance gate
+  vehicle:  { hut1: ["Engineer","Metal Shop","Wheel","Transporation","Racer","Traveler"] },
+  supplies: { hut1: ["Pawn","Pawn Shop","Provisioner","Supplies","Equipment","Goods"] },
+  mechanic: { hut1: ["Garage","Mechanics","Greasy","Nuts & Bolts","Engine Repair","Wooden Crafts"] },
+  robot:    { hut1: ["Droid Shop","Mech Factory","Robot Repair","Android Market","Cyborg Surplus","Robotic Design"],
+              hut3: ["Iron","Steel","Rusty","Metallic","Computerized","Mechanical","Shiny","Haywired"] }
+};
+function paBusinessName(type, game) {
+  var creatureList = (game === "MF") ? PA_HUT2_CREATURE_MF : PA_HUT2_CREATURE_DEFAULT;
+  var hut2 = pick(creatureList);
+  var hut3 = pick(PA_HUT3_DEFAULT);
+  var def = PA_TYPE_TABLE[type] || PA_TYPE_TABLE.supplies;
+  var hut1 = pick(def.hut1);
+  if (def.hut2Always) {
+    hut2 = pick((game === "BU") ? ["Beast","Centidon","Cruler","Ostradon","Steed","Rider","Charger","Shellox"]
+                                 : ["Beast","Bull","Camel","Lion","Steed","Rider","Charger","Pony"]);
+  } else if (def.hut2 && chance(70)) {
+    hut2 = pick(def.hut2);
+  }
+  if (def.hut3 && chance(70)) hut3 = pick(def.hut3);
   return (chance(70) ? "The " : "") + hut3 + " " + hut2 + " " + hut1;
 }
 
@@ -889,8 +973,22 @@ var STORE_LOOKUP = {
   tavern: "Tavern", inn: "Inn", blacksmith: "Blacksmith", alchemist: "Alchemist",
   baker: "Baker", bowyer: "Bowyer", carpenter: "Carpenter", church: "Church",
   leatherworker: "Leatherworker", library: "Library", music: "Music",
-  provisioner: "Provisioner", stables: "Stables", tailor: "Tailor"
+  provisioner: "Provisioner", stables: "Stables", tailor: "Tailor",
+  military: "Military", bar: "Bar", patailor: "Tailor", medical: "Medical",
+  stable: "Stable", vehicle: "Vehicle", supplies: "Supplies",
+  mechanic: "Mechanic", robot: "Robot"
 };
+
+// game codes that put the generator in post-apoc mode (vs. fantasy DD/TT)
+function isPostApocGame(game) { return game === "BU" || game === "MF" || game === "PA"; }
+
+// game-code match mirrors source's "game LIKE '%CODE%'" (see PABusiness()
+// / GFTBusiness()): substring, not exact-equal, since post-apoc rows carry
+// combo tags like "MFxPAxBU". Safe for every code in use (DD/TT/BU/MF/PA)
+// since none is a substring of another.
+function gameMatches(rowGame, game) {
+  return rowGame.indexOf(game) !== -1;
+}
 
 // Support Values (population per business of that type), from "Medieval
 // Demographics Made Easy" (S. John Ross). Source-exact matches: tavern,
@@ -909,7 +1007,7 @@ var SV_TABLE = {
 function pickInventory(type, game) {
   game = game || "DD";
   var storeName = STORE_LOOKUP[type];
-  var pool = STORE_ITEMS.filter(function(r) { return r.store === storeName && r.game === game; });
+  var pool = STORE_ITEMS.filter(function(r) { return r.store === storeName && gameMatches(r.game, game); });
   if (pool.length === 0) return [];
   var stockPct = randInt(65, 95);
   var kept = pool.filter(function() { return chance(stockPct); });
@@ -928,7 +1026,7 @@ function fullCatalogPool(type, game) {
   var storeName = STORE_LOOKUP[type];
   var seen = {};
   var out = [];
-  STORE_ITEMS.filter(function(r) { return r.store === storeName && r.game === game; })
+  STORE_ITEMS.filter(function(r) { return r.store === storeName && gameMatches(r.game, game); })
     .forEach(function(r) {
       if (!seen[r.item]) { seen[r.item] = true; out.push({ item: r.item, cost: r.cost }); }
     });
@@ -969,17 +1067,22 @@ function updatePriceDisplay() {
 // =====================================================================
 var currentShop = null; // the shop currently on screen, being edited
 
-function buildShop(type) {
+function buildShop(type, game) {
+  game = game || "DD";
+  var isPostApoc = isPostApocGame(game);
+  // fantasy-only for now; nuclearCitizen() (source's post-apoc citizen
+  // generator, with mutations/tech level) hasn't been ported, so
+  // post-apoc shop owners still use the fantasy NPC generator
   var npc = generateNPC();
-  var name = businessName(type);
-  var exterior = fixCaps(expand("{exterior}", descTables));
-  var ambiance = fixCaps(expand("{" + type + "_ambiance}", descTables));
-  var inventory = pickInventory(type);
-  var ownerTitle = OWNER_TITLES[type] || "Owner";
+  var name = businessName(type, game);
+  var exterior = fixCaps(expand(isPostApoc ? "{exterior_pa}" : "{exterior}", descTables));
+  var ambiance = fixCaps(expand(isPostApoc ? "{postapoc_ambiance}" : ("{" + type + "_ambiance}"), descTables));
+  var inventory = pickInventory(type, game);
+  var ownerTitle = (isPostApoc ? PA_OWNER_TITLES[type] : OWNER_TITLES[type]) || "Owner";
 
   var shop = {
     id: "shop_" + Date.now() + "_" + Math.random().toString(36).slice(2,8),
-    type: type, name: name,
+    type: type, game: game, name: name,
     baseValue: randInt(50, 500), // building/location value; inventory value is added on top and recalculated live
     price: 0, inventoryValueGp: 0,
     npc: npc, ownerTitle: ownerTitle,
@@ -989,10 +1092,79 @@ function buildShop(type) {
   return shop;
 }
 
-function newShop(type) {
-  currentShop = buildShop(type);
+function newShop(type, game) {
+  currentShop = buildShop(type, game);
   recomputeValue(currentShop);
   renderCurrent();
+}
+
+// =====================================================================
+// SETTING / RULESET SWITCH — driven by menus.csv's real "Game Choice"
+// gating: Fantasy Settlements has three separate source generators keyed
+// to different rulesets (tool_wtown.php: OSRIC/AD&D1979; tool_ftown.php:
+// Labyrinth Lord/D&D1981/Basic Fantasy/Swords&Wizardry/generic Fantasy/
+// Swords&Six-Siders; tool_ttown.php: Tunnels&Trolls 5e/7e/Deluxe) but
+// GFTBusiness/wizardBusiness both hardcode game='DD' regardless of which
+// of those rulesets picked them — so "D&D-Style" here covers all of
+// tool_wtown.php + tool_ftown.php's rulesets, and "Tunnels & Trolls"
+// covers tool_ttown.php's game='TT' catalog. Post-apoc mirrors
+// tool_mtown.php/PABusiness(): Mutant Future and Broken Urthe each get
+// their own catalog+word-bank branch, everything else in that source
+// function's "Other" bucket (Gamma World, etc.) falls into the generic
+// PA branch — matching menus.csv's "Other" Game Choice category, which
+// has no settlement generator for those other rulesets anyway.
+var FANTASY_DD_TYPE_OPTIONS = [
+  ["tavern", "Tavern"], ["inn", "Inn"], ["blacksmith", "Blacksmith"],
+  ["alchemist", "Alchemist"], ["baker", "Baker"], ["bowyer", "Bowyer"],
+  ["carpenter", "Carpenter"], ["church", "Church"],
+  ["leatherworker", "Leatherworker"], ["library", "Library"],
+  ["music", "Music Shop"], ["provisioner", "Provisioner"],
+  ["stables", "Stables"], ["tailor", "Tailor"]
+];
+// Tunnels & Trolls catalog (store-items.csv game="TT", 1055 rows) only
+// covers these 7 store types — no TT Tavern/Inn/Alchemist/Baker/Library/
+// Music/Church data exists, so those aren't offered under this ruleset
+// rather than silently generating an empty/DD-flavored shop.
+var FANTASY_TT_TYPE_OPTIONS = [
+  ["blacksmith", "Blacksmith"], ["bowyer", "Bowyer"], ["carpenter", "Carpenter"],
+  ["leatherworker", "Leatherworker"], ["provisioner", "Provisioner"],
+  ["stables", "Stables"], ["tailor", "Tailor"]
+];
+// Common post-apoc types (store-items.csv has BU/MF/PA-tagged rows for
+// all of these). Mechanic and Robot are BU-only in the catalog (20 and 12
+// rows, all tagged "BU" with no MF/PA rows at all) — Broken Urthe's robot/
+// cyborg flavor doesn't carry over to Mutant Future or the generic
+// post-apoc bucket, so those two are only offered under that ruleset,
+// again to avoid a type that silently generates with no inventory.
+var POSTAPOC_TYPE_OPTIONS_COMMON = [
+  ["military", "Army Surplus"], ["bar", "Bar"], ["patailor", "Tailor"],
+  ["medical", "Doctor"], ["stable", "Stables"], ["vehicle", "Vehicle Shop"],
+  ["supplies", "Supplies"]
+];
+var POSTAPOC_TYPE_OPTIONS_BU_ONLY = [["mechanic", "Mechanic"], ["robot", "Robotics"]];
+
+function onSettingChange() {
+  var setting = document.getElementById("settingSelect").value;
+  var isPostApoc = setting === "postapoc";
+  document.getElementById("fantasyRulesetSelect").style.display = isPostApoc ? "none" : "";
+  document.getElementById("paRulesetSelect").style.display = isPostApoc ? "" : "none";
+  var fantasyRuleset = document.getElementById("fantasyRulesetSelect").value;
+  var paRuleset = document.getElementById("paRulesetSelect").value;
+  var options;
+  if (isPostApoc) {
+    options = POSTAPOC_TYPE_OPTIONS_COMMON.concat(paRuleset === "BU" ? POSTAPOC_TYPE_OPTIONS_BU_ONLY : []);
+  } else {
+    options = fantasyRuleset === "TT" ? FANTASY_TT_TYPE_OPTIONS : FANTASY_DD_TYPE_OPTIONS;
+  }
+  document.getElementById("typeSelect").innerHTML = options.map(function(o) {
+    return '<option value="' + o[0] + '">' + escapeHtml(o[1]) + '</option>';
+  }).join("");
+}
+
+function currentGameCode() {
+  var setting = document.getElementById("settingSelect").value;
+  return setting === "postapoc" ? document.getElementById("paRulesetSelect").value
+                                 : document.getElementById("fantasyRulesetSelect").value;
 }
 
 // item name -> catalog cost, for the currently-rendered shop's suggestion pool
@@ -1011,7 +1183,7 @@ function renderCurrent() {
   // is never left with an empty, useless dropdown
   var haveNames = {};
   shop.inventory.forEach(function(i){ haveNames[i.item.toLowerCase()] = true; });
-  var fullPool = fullCatalogPool(shop.type);
+  var fullPool = fullCatalogPool(shop.type, shop.game);
   var suggestions = fullPool.filter(function(c) { return !haveNames[c.item.toLowerCase()]; });
   if (suggestions.length === 0) suggestions = fullPool;
   currentSuggestionMap = {};
@@ -1338,6 +1510,7 @@ function importAll(evt) {
 }
 
 // init
+onSettingChange();
 renderSavedList();
 
 // =====================================================================
