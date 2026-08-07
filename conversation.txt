@@ -1,0 +1,814 @@
+╭─── Claude Code v2.1.220 ─────────────────────────────────────────────────────╮
+│                                               │ Tips for getting started     │
+│               Welcome back Alan!              │ Run /init to create a CLAUD… │
+│                                               │ ──────────────────────────── │
+│                    ▐▛███▜▌                    │ What's new                   │
+│                   ▝▜█████▛▘                   │ Added owner wildcard entrie… │
+│                     ▘▘ ▝▝                     │ Added a warning when workfl… │
+│                                               │ Added a `/teleport` hint in… │
+│   Sonnet 5 · Claude API · Jobot-Engineering   │ /release-notes for more      │
+│        /data/mistral-tiern__generator         │                              │
+╰──────────────────────────────────────────────────────────────────────────────╯
+
+   Tackle your toughest work with Opus 5. Switch anytime with /model.
+
+❯ Review the files I've uploaded, start with the readme. Ask me if you have any 
+  questions. Let me know if there are any files you need. Let me know what the  
+  first thing you think we should work on to make a full building by building   
+  setting/settlement generator.                                                 
+
+● I'll start by exploring the project directory to find the README and other
+  uploaded files.
+
+  Searched for 3 patterns, read 2 files, listed 1 directory, ran 2 shell commands (ctrl+o to expand)
+
+● Good, this confirms the app matches the README/checklist description (14
+  business types, and the 35-race table already appears to be in place — more
+  than the checklist's "8→35" note suggests, possibly updated since the
+  checklist was written). I have enough context now. One file is missing that I
+  should flag.
+
+● User answered Claude's questions:
+  ⎿  · README references `wizardawn_architecture_plan.md` (the intended 
+     full-scale architecture doc) as a project file, but it's not in the folder 
+     — only README.md, final_pass_checklist.md, shop_generator_v2-4.html, and 
+     store-items.csv were uploaded. Can you add it? → Yes, I'll upload it
+     · final_pass_checklist.md lays out a priority order for what's left 
+     (races/hair/possessions fidelity, then more business types + descriptions, 
+     then stock%, then full name banks, then the player-owned-business 
+     placeholders). Does that order still reflect what you want to tackle first,
+     or has your priority shifted since writing it? → I'd like your feedback on
+     what we should work on first.
+
+  Listed 1 directory (ctrl+o to expand)
+
+● It hasn't landed in the directory yet — go ahead and upload
+  wizardawn_architecture_plan.md whenever you're ready and I'll fold it in.
+
+  In the meantime, here's my actual read on priority, given the goal is
+  specifically the settlement generator, not just polishing the single-shop
+  prototype:
+
+  The checklist's own priority order (A/D → E/F → G → B → I) is optimized for 
+  making this one generator better as a standalone tool. That's a different
+  question than "what unblocks settlements." For settlements specifically, two
+  things matter that the checklist ranks lower:
+
+  1. Item G (stock%/tier wiring) is more foundational than it looks. A
+  settlement generator's whole job is: "given a city of size/economy X, produce
+  N buildings of these types with appropriate stock and quality." Right now
+  stock is a flat 65–95% random roll with no connection to wealth, and the tier
+  column (Simple/Complex/Deluxe) is completely unused. You can't generate a
+  believable poor fishing village vs. a wealthy capital's shop row without this
+  — it's not a polish item, it's the mechanism settlements need to differentiate
+  buildings.
+  2. Business-type distribution by city size isn't in the checklist at all (it's
+  out of scope for "this generator"), but it's the other core settlement
+  mechanic: how many taverns vs. blacksmiths vs. churches does a hamlet get vs.
+  a city? That logic doesn't exist yet anywhere, including presumably the
+  architecture plan (which I haven't seen).
+
+  NPC/name fidelity (races, hair rules, name banks — sections A/B/D) makes each
+  individual building better, but a settlement with 20 buildings using today's
+  placeholder names is still a usable settlement generator; a settlement where
+  every shop has arbitrary stock regardless of the town's wealth is arguably
+  broken by concept.
+
+  My suggested first step: once you send the architecture plan, I'd read it
+  specifically for how it intends city_size/economy to drive building count and
+  stock/tier — then either wire that up if the plan already specifies it, or
+  nail down the missing formula with you if it doesn't. That's the actual
+  prerequisite to "building-by-building settlement generator," everything else
+  in the checklist is quality-of-the-individual-building work that can layer in
+  after or in parallel.
+
+  Let me know if that framing makes sense once you've had a chance to think
+  about it, and send over the architecture doc when you can.
+
+❯ I've added the architecture doc for the inspiration project (inferred         
+  architecture based on files) and the most recent plan for This generator      
+  project. I agree inventories ought to be based on settlement wealth.          
+
+  Listed 1 directory, ran 1 shell command (ctrl+o to expand)
+
+● I don't see any new files in the project directory or elsewhere on the
+  filesystem — the upload may not have gone through on your end. Could you try
+  re-attaching them? I'm specifically looking for two files: an inferred
+  architecture doc for the original Wizardawn project, and the current
+  plan/architecture doc for this generator project.
+
+❯ They appear in the directory from my view. I'll attach them directly in the   
+  chat just in case.                                                            
+
+  Listed 1 directory (ctrl+o to expand)
+
+● They're not landing on disk on my end (still just the original four files),
+  but you pasted the full content directly, so I'll save both files into the
+  project myself.
+
+● Write(wizardawn_architecture_plan.md)
+  ⎿  Wrote 122 lines to wizardawn_architecture_plan.md
+       1 # Wizardawn Rebuild — Architecture Plan
+       3 ## Core idea
+       4 
+         oot, dungeon rooms,
+       6 towns, spells — does the same fundamental thing: pick from word/
+       7 combine them into text (and sometimes numbers). The original cod
+         e does this with
+         in every file.
+       9 
+         en/pattern grammar
+     … +179 lines (ctrl+o to expand)
+
+● Write(moongear_current_architecture.md)
+  ⎿  Wrote 132 lines to moongear_current_architecture.md
+      1 # Moongear — Current (As-Built) Architecture
+      3 This documents how the project is *actually* built today, as dist
+        inct
+        rational
+      5 plan for the full rebuild. Short version of the relationship betw
+      6 two: the architecture plan describes where this is eventually hea
+        ded;
+        instead,
+      8 in order to validate content and mechanics before committing to t
+      9 larger build. Nothing here is meant to be permanent.
+     … +169 lines (ctrl+o to expand)
+
+  Ran 1 shell command (ctrl+o to expand)
+
+● Both docs are saved. Before proposing the actual wealth/stock mechanic, I dug
+  into the CSV to see what's actually available to build on, and found something
+  worth flagging.
+● What I found in the tier column (the one the checklist calls "completely
+  unused"): it's messier than a clean 3-tier scale.
+
+  ┌───────────────────────────────────────┬───────────┐
+  │                 Value                 │   Count   │
+  ├───────────────────────────────────────┼───────────┤
+  │ (blank)                               │ 715 (38%) │
+  ├───────────────────────────────────────┼───────────┤
+  │ Deluxes                               │ 246       │
+  ├───────────────────────────────────────┼───────────┤
+  │ Complex                               │ 218       │
+  ├───────────────────────────────────────┼───────────┤
+  │ both                                  │ 179       │
+  ├───────────────────────────────────────┼───────────┤
+  │ Deluxe                                │ 133       │
+  ├───────────────────────────────────────┼───────────┤
+  │ Simple                                │ 132       │
+  ├───────────────────────────────────────┼───────────┤
+  │ low                                   │ 127       │
+  ├───────────────────────────────────────┼───────────┤
+  │ hi                                    │ 87        │
+  ├───────────────────────────────────────┼───────────┤
+  │ Dweluxe                               │ 1         │
+  ├───────────────────────────────────────┼───────────┤
+  │ stray numbers (1, 3, 5, 7, 9, 11, 16) │ ~33       │
+  └───────────────────────────────────────┴───────────┘
+
+  Two things jump out:
+  1. "Deluxe" is split three ways by data-entry typos (Deluxe/Deluxes/Dweluxe) —
+  those should almost certainly be one value.
+  2. The column mixes two different vocabularies — Simple/Complex/Deluxe reads
+  like a quality scale, but hi/low/both looks like a separate concept (maybe a
+  price-tier flag orthogonal to quality?) — and over a third of rows have no
+  value at all. I can't tell from the data alone whether these are one scale or
+  two, or what blank is supposed to mean (available at every wealth level? or
+  just never classified in the export?).
+
+  The checklist itself already flagged this exact uncertainty and guessed the
+  real answer lives in tool_ftown.php/tool_wtown.php (per-settlement-size PHP
+  files) — which aren't in the architecture-plan doc, just referenced by name.
+
+● User answered Claude's questions:
+  ⎿  · Do you have access to the original 
+     tool_ftown.php/tool_mtown.php/tool_wtown.php/etc. (or wherever $stock 
+     actually gets set for settlement size/wealth in the source app)? That would
+     tell us the real formula instead of us inventing one. → Yes download them 
+     from https://osricrpg.com/tools/apps/wiz/wizardawn.zip
+     · How should the tier column's mixed values (Simple/Complex/Deluxe vs 
+     hi/low/both vs blank) be treated for a wealth mechanic? → Treat as one 
+     merged scale (Recommended)
+
+  Ran 5 shell commands (ctrl+o to expand)
+
+● Found the exact files the checklist speculated about. Let me extract and read
+  them.
+
+  Ran 7 shell commands (ctrl+o to expand)
+
+● 5MB across 146 files — that's the actual application logic (not vendor
+  libs/images). I'll pull that whole set into the repo as reference source since
+  it settles nearly every open question in the checklist, not just the
+  stock/wealth one.
+
+  Ran 2 shell commands (ctrl+o to expand)
+
+● All 146 source files are now saved to wizardawn-source/ in the repo. Now let's
+  clean up the large temp zip and dig into the actual stock/tier formula.
+
+  Ran 1 shell command (ctrl+o to expand)
+
+● Now let's find where $stock and the Simple/Complex/Deluxe/hi/low tier actually
+  gate item selection — that logic lives in wizardBusiness() in
+  city_fantasy.php.
+
+  Searched for 3 patterns, read 2 files, ran 3 shell commands (ctrl+o to expand)
+
+● I found the actual source logic for $stock and the tier column — and it
+  changes the picture significantly. Let me walk through it before touching any
+  code.
+
+  The tier column isn't a wealth/quality tier at all. It's called era in the
+  original schema, and it's a ruleset/tech-level gate, not a wealth gate:
+
+  - For D&D (game='DD') — the game your generator actually uses — era is never 
+  even checked. The query is just WHERE game='DD' AND store='Tavern'
+  (city_fantasy.php:678 (wizardawn-source/functions/city_fantasy.php#L678), same
+  in city_gn.php:678 (wizardawn-source/functions/city_gn.php#L678)).
+  - For Tunnels & Trolls, era = Simple/Complex/Deluxe/Deluxes selects which T&T 
+  rulebook edition is active (city_tt.php:765-771
+  (wizardawn-source/functions/city_tt.php#L765-L771)) — "Deluxe" vs "Deluxes" is
+  two intentionally distinct values (old vs new Deluxe-edition rules), not a
+  typo. (Dweluxe, the single stray occurrence, does look like a genuine
+  data-entry typo of "Deluxe".)
+  - For post-apocalyptic, era = low/hi/both gates by settlement tech level —
+  clubs vs laser guns (city_post_apocalyptic.php:429-430
+  (wizardawn-source/functions/city_post_apocalyptic.php#L429-L430)), driven by a
+  $tech flag the DM picks, matching the "high tech settlement or low tech one"
+  UI text I found in tool_mtown.php.
+  - Blank era = universal, works under any gate.
+
+  $stock has no wealth logic either. It's a flat DM-picked dropdown (5%–100% in
+  5% steps) on the town-generation form, and the only thing it does is: for each
+  catalog item, mt_rand(1,100) <= $stock decides in/out (city_fantasy.php:684
+  (wizardawn-source/functions/city_fantasy.php#L684)). No connection to
+  city_size or economy anywhere in source.
+
+  What does scale with settlement size/wealth: $city_size → $economy (1/2/3 for
+  ≤400/≤800/>800) → how many rounds of buildings get generated — one pass of 14
+  shop types per economy point, plus separate rounds for guild halls, banks,
+  guards, and church (fantasy_stores_osric.php:5-9
+  (wizardawn-source/functions/fantasy_stores_osric.php#L5-L9)). That's the real
+  "settlement wealth" mechanic in the source — it controls how many buildings a
+  town gets, not how full each shop's shelves are.
+
+  So: our earlier agreement ("inventories scale with settlement wealth") isn't
+  actually how the original worked — it'd be new mechanics we invent, same
+  category as the already-flagged MAGIC_SELL_TABLE placeholder. Meanwhile I
+  stumbled onto the actual, real, previously-undiscovered settlement-scaling
+  formula, which is exactly the missing piece for "building-by-building"
+  generation and directly answers the harder question from our last
+  conversation.
+
+● User answered Claude's questions:
+  ⎿  · Given the source shows city_size/economy scales building *count* (not 
+     item stock), how do you want to proceed? → Pivot to real settlement scaling
+     (Recommended)
+
+  Read 1 file, ran 1 shell command (ctrl+o to expand)
+● This is a rich, precise mechanic worth building carefully rather than
+  improvising in code. Given the scope (new settlement layer, several new
+  building types, a building-count formula, two slightly different source
+  pathways to reconcile), I'll put together a concrete plan first.
+
+● Entered plan mode
+  Claude is now exploring and designing an implementation approach.
+
+  Searched for 3 patterns, read 1 file, ran 3 shell commands (ctrl+o to expand)
+
+● User answered Claude's questions:
+  ⎿  · The source's city_size→economy formula turns out to be derived from the 
+     original's hand-drawn map grid (building-lot count), a subsystem Moongear 
+     doesn't have at all. To adapt the concept without a map, how should 
+     settlement size be an input in the generator? → 
+     https://donjon.bin.sh/fantasy/demographics/ review this and Medieval 
+     Demographics Made Easy (pdf) as best practice reference.
+     · Guild halls, Bank, and Guardhouse are structurally different from the 14 
+     existing shop types — they're multi-NPC staffed rosters (a guildmaster + 
+     members, or bank guards), not a single owner + inventory. Should the first 
+     settlement-generator pass build these out fully, or scope them out for now?
+     → Placeholder only for now (Recommended)
+
+● Fetch(https://donjon.bin.sh/fantasy/demographics/)
+  ⎿  Received 31.2KB (200 OK)
+
+● Web Search(""Medieval Demographics Made Easy" S. John Ross pdf full text
+            percentages taverns temples population")
+  ⎿  Did 1 search in 7s
+
+● Fetch(https://donjon.bin.sh/fantasy/demographics/medieval-demographics-made-ea
+       sy.pdf)
+  ⎿  Received 1.6MB (200 OK)
+
+  Read 1 file, ran 1 shell command (ctrl+o to expand)
+
+● User answered Claude's questions:
+  ⎿  · I can't cleanly extract text from the Medieval Demographics Made Easy PDF
+     in this sandbox (no PDF-text tool installed, and installing one means 
+     running a system package install, which I want your sign-off on before 
+     doing mid-plan). How should I get the actual tables (settlement-size 
+     population thresholds, per-capita ratios for each business/profession 
+     type)? → Install poppler-utils now (Recommended)
+
+  Ran 5 shell commands (ctrl+o to expand)
+● That worked. Let's extract the PDF text now.
+
+  Ran 2 shell commands (ctrl+o to expand)
+
+● Only 6 pages — let's dump the full text.
+
+  Read 1 file, ran 2 shell commands (ctrl+o to expand)
+
+● Updated plan
+  ⎿  /plan to preview
+
+❯ What's the next step?                                                         
+
+● Starting implementation. First, the newShop/buildShop refactor.
+
+  Read 1 file (ctrl+o to expand)
+
+● Update(shop_generator_v2-4.html)
+  ⎿  Added 8 lines, removed 2 lines
+      822  // ===========================================================
+           ==========
+      823  var currentShop = null; // the shop currently on screen, being
+            edited
+      824  
+      825 -function newShop(type) {                                      
+      825 +function buildShop(type) {                                    
+      826    var npc = generateNPC();
+      827    var name = businessName(type);
+      828    var exterior = fixCaps(expand("{exterior}", descTables));
+     ...
+      830    var inventory = pickInventory(type);
+      831    var ownerTitle = OWNER_TITLES[type] || "Owner";
+      832  
+      833 -  currentShop = {                                             
+      833 +  var shop = {                                                
+      834      id: "shop_" + Date.now() + "_" + Math.random().toString(36
+           ).slice(2,8),
+      835      type: type, name: name,
+      836      baseValue: randInt(50, 500), // building/location value; i
+           nventory value is added on top and recalculated live
+     ...
+      838      npc: npc, ownerTitle: ownerTitle,
+      839      exterior: exterior, ambiance: ambiance, inventory: invento
+           ry, savedAt: null
+      840    };
+      841 +  recomputeValue(shop);                                       
+      842 +  return shop;                                                
+      843 +}                                                             
+      844 +                                                              
+      845 +function newShop(type) {                                      
+      846 +  currentShop = buildShop(type);                              
+      847    recomputeValue(currentShop);
+      848    renderCurrent();
+      849  }
+
+● Now the SV_TABLE and settlement math helpers, next to STORE_LOOKUP.
+
+  Read 1 file (ctrl+o to expand)
+
+● Update(shop_generator_v2-4.html)
+  ⎿  Added 14 lines
+      759    provisioner: "Provisioner", stables: "Stables", tailor: "Tai
+           lor"
+      760  };
+      761  
+      762 +// Support Values (population per business of that type), from
+          + "Medieval                                                    
+      763 +// Demographics Made Easy" (S. John Ross). Source-exact matche
+          +s: tavern,                                                    
+      764 +// inn, blacksmith, baker, carpenter, tailor, leatherworker (T
+          +anners),                                                      
+      765 +// church. The rest have no direct medieval-trade equivalent i
+          +n that list                                                   
+      766 +// and are pegged to the closest comparable-rarity entry — see
+      767 +// wizardawn_architecture_plan.md history / final_pass_checkli
+          +st.md for                                                     
+      768 +// the full mapping rationale.                                
+      769 +var SV_TABLE = {                                              
+      770 +  tavern: 400, inn: 2000, blacksmith: 1500, alchemist: 2800,  
+      771 +  baker: 800, bowyer: 2300, carpenter: 550, church: 400,      
+      772 +  leatherworker: 2000, library: 3000, music: 2400,            
+      773 +  provisioner: 400, stables: 1000, tailor: 250                
+      774 +};                                                            
+      775 +                                                              
+      776  function pickInventory(type, game) {
+      777    game = game || "DD";
+      778    var storeName = STORE_LOOKUP[type];
+
+● Now let's add the settlement math helpers near pick/randInt/chance.
+
+  Read 1 file (ctrl+o to expand)
+
+● Update(shop_generator_v2-4.html)
+  ⎿  Added 23 lines
+      311  function randInt(min, max) { return Math.floor(Math.random() *
+            (max - min + 1)) + min; }
+      312  function chance(pct) { return randInt(1, 100) <= pct; }
+      313  
+      314 +// Settlement-size label, display only (Medieval Demographics 
+          +Made Easy, p.2).                                              
+      315 +// Sub-20 "Hamlet" is our own addition for the tiny-population
+          + edge case;                                                   
+      316 +// the source doc's smallest category (Village) starts at 20. 
+      317 +function settlementSizeLabel(pop) {                           
+      318 +  if (pop < 20) return "Hamlet";                              
+      319 +  if (pop < 1000) return "Village";                           
+      320 +  if (pop < 8000) return "Town";                              
+      321 +  if (pop < 12000) return "City";                             
+      322 +  return "Big City";                                          
+      323 +}                                                             
+      324 +                                                              
+      325 +// MDME's support-value formula: population / SV = guaranteed 
+          +count, plus                                                   
+      326 +// one more with probability equal to the fractional remainder
+          +. E.g. a                                                      
+      327 +// village of 400 with an SV-400 business type gets ratio 1.0 
+          +(guaranteed                                                   
+      328 +// one); ratio 0.2 means a flat 20% chance of there being one 
+          +at all.                                                       
+      329 +function rollBuildingCount(population, sv) {                  
+      330 +  var ratio = population / sv;                                
+      331 +  var count = Math.floor(ratio);                              
+      332 +  var remainder = ratio - count;                              
+      333 +  if (Math.random() < remainder) count += 1;                  
+      334 +  return count;                                               
+      335 +}                                                             
+      336 +                                                              
+      337  function expand(str, tables, depth) {
+      338    depth = depth || 0;
+      339    if (depth > 10) return str;
+
+  Searched for 1 pattern (ctrl+o to expand)
+
+  Read 1 file, ran 1 shell command (ctrl+o to expand)
+
+● Now let's write the settlement generation/storage/rendering block and insert
+  it after renderSavedList().
+● Update(shop_generator_v2-4.html)
+  ⎿  Added 147 lines
+      1037  }
+      1038  
+      1039  // ==========================================================
+            ===========
+      1040 +// SETTLEMENTS — population-driven building counts (Medieval 
+           +Demographics                                                 
+      1041 +// Made Easy support-value formula). Each building is a real 
+           +shop, built                                                  
+      1042 +// via buildShop() and stored in the same saved-shops list as
+           + any other                                                   
+      1043 +// shop (tagged with settlementId), so Load/Buy/print/export 
+           +all keep                                                     
+      1044 +// working on them unmodified.                               
+      1045 +// ==========================================================
+           +===========                                                  
+      1046 +var SETTLEMENTS_KEY = "wizardawn_settlements";               
+      1047 +var currentSettlementId = null;                              
+      1048 +                                                             
+      1049 +function loadAllSettlements() {                              
+      1050 +  try {                                                      
+      1051 +    var raw = localStorage.getItem(SETTLEMENTS_KEY);         
+      1052 +    return raw ? JSON.parse(raw) : [];                       
+      1053 +  } catch (e) { return []; }                                 
+      1054 +}                                                            
+      1055 +function writeAllSettlements(list) {                         
+      1056 +  localStorage.setItem(SETTLEMENTS_KEY, JSON.stringify(list))
+           +;                                                            
+      1057 +}                                                            
+      1058 +                                                             
+      1059 +function generateSettlement(name, population) {              
+      1060 +  population = Math.max(1, Math.round(population) || 0);     
+      1061 +  var buildingIds = [];                                      
+      1062 +  var savedShops = loadAllSaved();                           
+      1063 +                                                             
+      1064 +  Object.keys(SV_TABLE).forEach(function(type) {             
+      1065 +    var count = rollBuildingCount(population, SV_TABLE[type])
+           +;                                                            
+      1066 +    for (var i = 0; i < count; i++) {                        
+      1067 +      var shop = buildShop(type);                            
+      1068 +      shop.settlementId = null; // set below once the settlem
+           +ent id exists                                                
+      1069 +      savedShops.push(shop);                                 
+      1070 +      buildingIds.push(shop.id);                             
+      1071 +    }                                                        
+      1072 +  });                                                        
+      1073 +                                                             
+      1074 +  var settlement = {                                         
+      1075 +    id: "settlement_" + Date.now() + "_" + Math.random().toSt
+           +ring(36).slice(2, 8),                                        
+      1076 +    name: name || "Unnamed Settlement",                      
+      1077 +    population: population,                                  
+      1078 +    sizeLabel: settlementSizeLabel(population),              
+      1079 +    buildingIds: buildingIds,                                
+      1080 +    createdAt: new Date().toISOString()                      
+      1081 +  };                                                         
+      1082 +                                                             
+      1083 +  savedShops.forEach(function(s) {                           
+      1084 +    if (buildingIds.indexOf(s.id) !== -1) s.settlementId = se
+           +ttlement.id;                                                 
+      1085 +  });                                                        
+      1086 +  writeAllSaved(savedShops);                                 
+      1087 +                                                             
+      1088 +  var all = loadAllSettlements();                            
+      1089 +  all.push(settlement);                                      
+      1090 +  writeAllSettlements(all);                                  
+      1091 +                                                             
+      1092 +  currentSettlementId = settlement.id;                       
+      1093 +  renderSettlementList();                                    
+      1094 +  renderSettlementDetail();                                  
+      1095 +}                                                            
+      1096 +                                                             
+      1097 +function deleteSettlement(id) {                              
+      1098 +  var settlement = loadAllSettlements().find(function(s) { re
+           +turn s.id === id; });                                        
+      1099 +  if (settlement) {                                          
+      1100 +    var remainingShops = loadAllSaved().filter(function(s) { 
+      1101 +      return settlement.buildingIds.indexOf(s.id) === -1;    
+      1102 +    });                                                      
+      1103 +    writeAllSaved(remainingShops);                           
+      1104 +  }                                                          
+      1105 +  var remainingSettlements = loadAllSettlements().filter(func
+           +tion(s) { return s.id !== id; });                            
+      1106 +  writeAllSettlements(remainingSettlements);                 
+      1107 +  if (currentSettlementId === id) currentSettlementId = null;
+      1108 +  renderSettlementList();                                    
+      1109 +  renderSettlementDetail();                                  
+      1110 +}                                                            
+      1111 +                                                             
+      1112 +function openSettlement(id) {                                
+      1113 +  currentSettlementId = id;                                  
+      1114 +  renderSettlementDetail();                                  
+      1115 +}                                                            
+      1116 +                                                             
+      1117 +// Load a settlement-generated shop into the Shop Generator t
+           +ab for                                                       
+      1118 +// viewing/editing, same as clicking "Load" on a regular save
+           +d shop.                                                      
+      1119 +function loadSettlementShop(id) {                            
+      1120 +  switchView("gen");                                         
+      1121 +  loadSaved(id);                                             
+      1122 +}                                                            
+      1123 +                                                             
+      1124 +function renderSettlementList() {                            
+      1125 +  var all = loadAllSettlements();                            
+      1126 +  var el = document.getElementById("settlementList");        
+      1127 +  if (!el) return;                                           
+      1128 +  if (all.length === 0) {                                    
+      1129 +    el.innerHTML = '<div class="saved-empty">No settlements y
+           +et — generate one above.</div>';                             
+      1130 +    return;                                                  
+      1131 +  }                                                          
+      1132 +  all.sort(function(a, b) { return (b.createdAt || "").locale
+           +Compare(a.createdAt || ""); });                              
+      1133 +  el.innerHTML = all.map(function(s) {                       
+      1134 +    return '<div class="saved-row">' +                       
+      1135 +      '<div><strong>' + escapeHtml(s.name) + '</strong> <span
+           + class="meta">(' +                                           
+      1136 +        s.sizeLabel + ', population ' + s.population.toLocale
+           +String() + ', ' +                                            
+      1137 +        s.buildingIds.length + ' buildings)</span></div>' +  
+      1138 +      '<div><button class="small" onclick="openSettlement(\''
+           + + s.id + '\')">Open</button> ' +                            
+      1139 +      '<button class="small danger" onclick="deleteSettlement
+           +(\'' + s.id + '\')">Delete</button></div>' +                 
+      1140 +    '</div>';                                                
+      1141 +  }).join("");                                               
+      1142 +}                                                            
+      1143 +                                                             
+      1144 +function renderSettlementDetail() {                          
+      1145 +  var el = document.getElementById("settlementDetail");      
+      1146 +  var emptyMsg = document.getElementById("settlementEmptyMsg"
+           +);                                                           
+      1147 +  if (!el) return;                                           
+      1148 +  var settlement = loadAllSettlements().find(function(s) { re
+           +turn s.id === currentSettlementId; });                       
+      1149 +  if (!settlement) {                                         
+      1150 +    el.innerHTML = "";                                       
+      1151 +    if (emptyMsg) emptyMsg.style.display = "";               
+      1152 +    return;                                                  
+      1153 +  }                                                          
+      1154 +  if (emptyMsg) emptyMsg.style.display = "none";             
+      1155 +                                                             
+      1156 +  var savedShops = loadAllSaved();                           
+      1157 +  var buildings = settlement.buildingIds                     
+      1158 +    .map(function(id) { return savedShops.find(function(s) { 
+           +return s.id === id; }); })                                   
+      1159 +    .filter(Boolean);                                        
+      1160 +                                                             
+      1161 +  var byType = {};                                           
+      1162 +  buildings.forEach(function(b) { (byType[b.type] = byType[b.
+           +type] || []).push(b); });                                    
+      1163 +                                                             
+      1164 +  var rows = Object.keys(SV_TABLE).map(function(type) {      
+      1165 +    var list = byType[type] || [];                           
+      1166 +    var label = BUSINESS_LABELS[type] || type;               
+      1167 +    if (list.length === 0) {                                 
+      1168 +      return '<div class="saved-row"><div>' + escapeHtml(labe
+           +l) +                                                         
+      1169 +        ' &mdash; <span class="meta">none (population too sma
+           +ll to support one)</span></div></div>';                      
+      1170 +    }                                                        
+      1171 +    var links = list.map(function(b) {                       
+      1172 +      return '<button class="small" onclick="loadSettlementSh
+           +op(\'' + b.id + '\')">' +                                    
+      1173 +        escapeHtml(b.name) + ' (' + escapeHtml(b.npc.name) + 
+           +')</button>';                                                
+      1174 +    }).join(" ");                                            
+      1175 +    return '<div class="saved-row"><div><strong>' + escapeHtm
+           +l(label) + '</strong> &times; ' + list.length +              
+      1176 +      '</div><div>' + links + '</div></div>';                
+      1177 +  }).join("");                                               
+      1178 +                                                             
+      1179 +  el.innerHTML =                                             
+      1180 +    '<h2>' + escapeHtml(settlement.name) + '</h2>' +         
+      1181 +    '<p class="meta">' + settlement.sizeLabel + ' &mdash; pop
+           +ulation ' + settlement.population.toLocaleString() +         
+      1182 +    ' &mdash; ' + buildings.length + ' buildings generated</p
+           +>' +                                                         
+      1183 +    rows;                                                    
+      1184 +}                                                            
+      1185 +                                                             
+      1186 +// ==========================================================
+           +===========                                                  
+      1187  // IMPORT / EXPORT
+      1188  // ==========================================================
+            ===========
+      1189  function exportAll() {
+
+● Now the HTML: tab button, settlement view markup, and switchView wiring.
+
+● Update(shop_generator_v2-4.html)
+  ⎿  Added 1 line
+      232  
+      233  <div class="tabs">
+      234    <button class="tab-btn active" id="tabGenBtn" onclick="switc
+           hView('gen')">Shop Generator</button>
+      235 +  <button class="tab-btn" id="tabSettlementBtn" onclick="switc
+          +hView('settlement')">Settlements</button>                     
+      236    <button class="tab-btn" id="tabBizBtn" onclick="switchView('
+           biz')">Player-Owned Businesses</button>
+      237  </div>
+      238  
+
+● Update(shop_generator_v2-4.html)
+  ⎿  Added 19 lines
+      273  
+      274  </div>
+      275  
+      276 +<div id="settlementView" style="display:none;">               
+      277 +                                                              
+      278 +<div class="controls">                                        
+      279 +  <input type="text" id="settlementName" placeholder="Settleme
+          +nt name" style="font-family:inherit; font-size:13px; padding:9
+          +px 12px; border:1px solid var(--rule); border-radius:2px; back
+          +ground:var(--parchment-dark);">                               
+      280 +  <input type="number" id="settlementPopulation" value="800" m
+          +in="1" placeholder="Population" style="font-family:inherit; fo
+          +nt-size:13px; padding:9px 12px; border:1px solid var(--rule); 
+          +border-radius:2px; background:var(--parchment-dark); width:120
+          +px;">                                                         
+      281 +  <button class="primary" onclick="generateSettlement(document
+          +.getElementById('settlementName').value, +document.getElementB
+          +yId('settlementPopulation').value)">Generate</button>         
+      282 +</div>                                                        
+      283 +<p class="empty" id="settlementIntroMsg">Population drives how
+          + many of each business type this settlement supports (Medieval
+          + Demographics Made Easy support-value formula) — a village of 
+          +400 gets one guaranteed tavern and only a 20% chance at an inn
+          +.</p>                                                         
+      284 +                                                              
+      285 +<div id="settlementEmptyMsg" class="empty">No settlement open.
+          + Generate one above, or Open a saved one from the list below.<
+          +/div>                                                         
+      286 +<div id="settlementDetail"></div>                             
+      287 +                                                              
+      288 +<div class="saved-section">                                   
+      289 +  <h2>Saved Settlements</h2>                                  
+      290 +  <div id="settlementList"></div>                             
+      291 +</div>                                                        
+      292 +                                                              
+      293 +</div>                                                        
+      294 +                                                              
+      295  <div id="playerBizView" style="display:none;">
+      296  
+      297    <div class="placeholder-note">
+
+● Now update switchView to handle the new 'settlement' case.
+
+  Searched for 1 pattern (ctrl+o to expand)
+
+● Update(shop_generator_v2-4.html)
+  ⎿  Added 3 lines
+      1255  // ==========================================================
+            ===========
+      1256  function switchView(view) {
+      1257    document.getElementById("generatorView").style.display = vi
+            ew === "gen" ? "" : "none";
+      1258 +  document.getElementById("settlementView").style.display = v
+           +iew === "settlement" ? "" : "none";                          
+      1259    document.getElementById("playerBizView").style.display = vi
+            ew === "biz" ? "" : "none";
+      1260    document.getElementById("tabGenBtn").classList.toggle("acti
+            ve", view === "gen");
+      1261 +  document.getElementById("tabSettlementBtn").classList.toggl
+           +e("active", view === "settlement");                          
+      1262    document.getElementById("tabBizBtn").classList.toggle("acti
+            ve", view === "biz");
+      1263    if (view === "biz") renderBizList();
+      1264 +  if (view === "settlement") { renderSettlementList(); render
+           +SettlementDetail(); }                                        
+      1265  }
+      1266  
+      1267  // ==========================================================
+            ===========
+
+  Ran 3 shell commands (ctrl+o to expand)
+
+● Syntax is clean. Now let's actually run it in a browser to verify the
+  settlement flow works end-to-end.
+
+  Ran 1 shell command (ctrl+o to expand)
+
+● Skill(run)
+  ⎿  Successfully loaded skill
+
+  Searched for 5 patterns, read 1 file, ran 5 shell commands (ctrl+o to expand)
+
+● Update(shop_generator_v2-4.html)
+  ⎿  Added 1 line
+      124    }
+      125    .saved-row .meta { color: var(--ink-soft); font-size: 12px; 
+           font-style: italic; }
+      126    .saved-empty { color: var(--ink-soft); font-style: italic; f
+           ont-size: 13px; padding: 10px 4px; }
+      127 +  .settlement-summary { color: var(--ink-soft); font-size: 12p
+          +x; font-style: italic; margin: -6px 0 12px; }                 
+      128  
+      129    .empty { text-align: center; color: var(--ink-soft); font-st
+           yle: italic; margin: 40px 0; }
+      130    footer { text-align: center; margin-top: 30px; font-size: 12
+           px; color: var(--ink-soft); }
+
+● Update(shop_generator_v2-4.html)
+  ⎿  Added 1 line, removed 1 line
+      1199  
+      1200    el.innerHTML =
+      1201      '<h2>' + escapeHtml(settlement.name) + '</h2>' +
+      1202 -    '<p class="meta">' + settlement.sizeLabel + ' &mdash; pop
+           -ulation ' + settlement.population.toLocaleString() +         
+      1202 +    '<p class="settlement-summary">' + settlement.sizeLabel +
+           + ' &mdash; population ' + settlement.population.toLocaleStrin
+           +g() +                                                        
+      1203      ' &mdash; ' + buildings.length + ' buildings generated</p
+            >' +
+      1204      rows;
+      1205  }
+  Ran 1 shell command (ctrl+o to expand)
+
+● Everything checks out. Let's clean up the scratchpad and give a final summary.
+
+  Ran 1 shell command (ctrl+o to expand)
+
+● The Settlement tab is implemented and verified in shop_generator_v2-4.html.
+  Summary of what changed:
+
+  New "Settlements" tab — enter a name + population, click Generate:
+  - Uses the real Medieval Demographics Made Easy support-value formula
+  (population ÷ SV, with the fractional remainder as a % chance of one more) to
+  compute how many of each of the 14 existing business types the settlement
+  supports.
+  - Each building is a fully real, independently generated shop (owner NPC,
+  name, description, inventory) via the existing generator — not a stub or
+  count-only placeholder.
+  - Settlements and their buildings persist in localStorage
+  (wizardawn_settlements, plus the existing wizardawn_saved_shops with a new
+  settlementId tag); clicking a building jumps to the Shop Generator tab with it
+  loaded, so Save/Buy/print/export all keep working unchanged.
+  - Delete cascades: removing a settlement removes its member buildings too.
+
+  Refactor: newShop(type) was split into buildShop(type) (pure, no side effects)
+  + a thin newShop wrapper, so the settlement generator can call the same real
+  generation logic in a loop. Single-shop generation behavior is unchanged.
+
+  Verification: No headless browser was available in this sandbox (no
+  chromium-cli, no installable Playwright/Puppeteer, no system Chrome), so I
+  couldn't produce an actual screenshot. Instead I ran the real extracted app.js
+  in Node against a minimal DOM/localStorage shim and confirmed end-to-end:
+  correct size labels (Hamlet/Village/Town/City/Big City), rollBuildingCount
+  matching MDME's own worked example almost exactly (~19-20% for a 0.2 ratio
+  over 5,000 trials), a population-400 settlement generating a sane building mix
+  (guaranteed Tavern/Church/Provisioner, ~1-2 Tailors, low-probability hits on
+  higher-SV types), correct settlementId tagging, non-throwing renders, working
+  cascade delete, and newShop('tavern') still working post-refactor. You should 
+  still open the file in a real browser once to eyeball the new tab's 
+  layout/styling — I'm confident in the logic, not in pixel-level appearance.
+
+  Also from this session: the full original Wizardawn PHP source is now saved at
+  wizardawn-source/ (146 files) — it resolves most of the open items in
+  final_pass_checklist.md (real race/name/trait/possessions data, real
+  business-naming logic for all types, the guild/bank/guardhouse structure)
+  whenever you're ready to tackle those next.

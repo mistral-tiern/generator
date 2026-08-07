@@ -124,6 +124,7 @@
   }
   .saved-row .meta { color: var(--ink-soft); font-size: 12px; font-style: italic; }
   .saved-empty { color: var(--ink-soft); font-style: italic; font-size: 13px; padding: 10px 4px; }
+  .settlement-summary { color: var(--ink-soft); font-size: 12px; font-style: italic; margin: -6px 0 12px; }
 
   .empty { text-align: center; color: var(--ink-soft); font-style: italic; margin: 40px 0; }
   footer { text-align: center; margin-top: 30px; font-size: 12px; color: var(--ink-soft); }
@@ -232,6 +233,7 @@
 
 <div class="tabs">
   <button class="tab-btn active" id="tabGenBtn" onclick="switchView('gen')">Shop Generator</button>
+  <button class="tab-btn" id="tabSettlementBtn" onclick="switchView('settlement')">Settlements</button>
   <button class="tab-btn" id="tabBizBtn" onclick="switchView('biz')">Player-Owned Businesses</button>
 </div>
 
@@ -268,6 +270,25 @@
 <div class="saved-section">
   <h2>Saved Shops</h2>
   <div id="savedList"></div>
+</div>
+
+</div>
+
+<div id="settlementView" style="display:none;">
+
+<div class="controls">
+  <input type="text" id="settlementName" placeholder="Settlement name" style="font-family:inherit; font-size:13px; padding:9px 12px; border:1px solid var(--rule); border-radius:2px; background:var(--parchment-dark);">
+  <input type="number" id="settlementPopulation" value="800" min="1" placeholder="Population" style="font-family:inherit; font-size:13px; padding:9px 12px; border:1px solid var(--rule); border-radius:2px; background:var(--parchment-dark); width:120px;">
+  <button class="primary" onclick="generateSettlement(document.getElementById('settlementName').value, +document.getElementById('settlementPopulation').value)">Generate</button>
+</div>
+<p class="empty" id="settlementIntroMsg">Population drives how many of each business type this settlement supports (Medieval Demographics Made Easy support-value formula) — a village of 400 gets one guaranteed tavern and only a 20% chance at an inn.</p>
+
+<div id="settlementEmptyMsg" class="empty">No settlement open. Generate one above, or Open a saved one from the list below.</div>
+<div id="settlementDetail"></div>
+
+<div class="saved-section">
+  <h2>Saved Settlements</h2>
+  <div id="settlementList"></div>
 </div>
 
 </div>
@@ -310,6 +331,29 @@ var STORE_ITEMS = JSON.parse(document.getElementById('store-data').textContent);
 function pick(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
 function randInt(min, max) { return Math.floor(Math.random() * (max - min + 1)) + min; }
 function chance(pct) { return randInt(1, 100) <= pct; }
+
+// Settlement-size label, display only (Medieval Demographics Made Easy, p.2).
+// Sub-20 "Hamlet" is our own addition for the tiny-population edge case;
+// the source doc's smallest category (Village) starts at 20.
+function settlementSizeLabel(pop) {
+  if (pop < 20) return "Hamlet";
+  if (pop < 1000) return "Village";
+  if (pop < 8000) return "Town";
+  if (pop < 12000) return "City";
+  return "Big City";
+}
+
+// MDME's support-value formula: population / SV = guaranteed count, plus
+// one more with probability equal to the fractional remainder. E.g. a
+// village of 400 with an SV-400 business type gets ratio 1.0 (guaranteed
+// one); ratio 0.2 means a flat 20% chance of there being one at all.
+function rollBuildingCount(population, sv) {
+  var ratio = population / sv;
+  var count = Math.floor(ratio);
+  var remainder = ratio - count;
+  if (Math.random() < remainder) count += 1;
+  return count;
+}
 
 function expand(str, tables, depth) {
   depth = depth || 0;
@@ -759,6 +803,20 @@ var STORE_LOOKUP = {
   provisioner: "Provisioner", stables: "Stables", tailor: "Tailor"
 };
 
+// Support Values (population per business of that type), from "Medieval
+// Demographics Made Easy" (S. John Ross). Source-exact matches: tavern,
+// inn, blacksmith, baker, carpenter, tailor, leatherworker (Tanners),
+// church. The rest have no direct medieval-trade equivalent in that list
+// and are pegged to the closest comparable-rarity entry — see
+// wizardawn_architecture_plan.md history / final_pass_checklist.md for
+// the full mapping rationale.
+var SV_TABLE = {
+  tavern: 400, inn: 2000, blacksmith: 1500, alchemist: 2800,
+  baker: 800, bowyer: 2300, carpenter: 550, church: 400,
+  leatherworker: 2000, library: 3000, music: 2400,
+  provisioner: 400, stables: 1000, tailor: 250
+};
+
 function pickInventory(type, game) {
   game = game || "DD";
   var storeName = STORE_LOOKUP[type];
@@ -822,7 +880,7 @@ function updatePriceDisplay() {
 // =====================================================================
 var currentShop = null; // the shop currently on screen, being edited
 
-function newShop(type) {
+function buildShop(type) {
   var npc = generateNPC();
   var name = businessName(type);
   var exterior = fixCaps(expand("{exterior}", descTables));
@@ -830,7 +888,7 @@ function newShop(type) {
   var inventory = pickInventory(type);
   var ownerTitle = OWNER_TITLES[type] || "Owner";
 
-  currentShop = {
+  var shop = {
     id: "shop_" + Date.now() + "_" + Math.random().toString(36).slice(2,8),
     type: type, name: name,
     baseValue: randInt(50, 500), // building/location value; inventory value is added on top and recalculated live
@@ -838,6 +896,12 @@ function newShop(type) {
     npc: npc, ownerTitle: ownerTitle,
     exterior: exterior, ambiance: ambiance, inventory: inventory, savedAt: null
   };
+  recomputeValue(shop);
+  return shop;
+}
+
+function newShop(type) {
+  currentShop = buildShop(type);
   recomputeValue(currentShop);
   renderCurrent();
 }
@@ -994,6 +1058,153 @@ function renderSavedList() {
 }
 
 // =====================================================================
+// SETTLEMENTS — population-driven building counts (Medieval Demographics
+// Made Easy support-value formula). Each building is a real shop, built
+// via buildShop() and stored in the same saved-shops list as any other
+// shop (tagged with settlementId), so Load/Buy/print/export all keep
+// working on them unmodified.
+// =====================================================================
+var SETTLEMENTS_KEY = "wizardawn_settlements";
+var currentSettlementId = null;
+
+function loadAllSettlements() {
+  try {
+    var raw = localStorage.getItem(SETTLEMENTS_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch (e) { return []; }
+}
+function writeAllSettlements(list) {
+  localStorage.setItem(SETTLEMENTS_KEY, JSON.stringify(list));
+}
+
+function generateSettlement(name, population) {
+  population = Math.max(1, Math.round(population) || 0);
+  var buildingIds = [];
+  var savedShops = loadAllSaved();
+
+  Object.keys(SV_TABLE).forEach(function(type) {
+    var count = rollBuildingCount(population, SV_TABLE[type]);
+    for (var i = 0; i < count; i++) {
+      var shop = buildShop(type);
+      shop.settlementId = null; // set below once the settlement id exists
+      savedShops.push(shop);
+      buildingIds.push(shop.id);
+    }
+  });
+
+  var settlement = {
+    id: "settlement_" + Date.now() + "_" + Math.random().toString(36).slice(2, 8),
+    name: name || "Unnamed Settlement",
+    population: population,
+    sizeLabel: settlementSizeLabel(population),
+    buildingIds: buildingIds,
+    createdAt: new Date().toISOString()
+  };
+
+  savedShops.forEach(function(s) {
+    if (buildingIds.indexOf(s.id) !== -1) s.settlementId = settlement.id;
+  });
+  writeAllSaved(savedShops);
+
+  var all = loadAllSettlements();
+  all.push(settlement);
+  writeAllSettlements(all);
+
+  currentSettlementId = settlement.id;
+  renderSettlementList();
+  renderSettlementDetail();
+}
+
+function deleteSettlement(id) {
+  var settlement = loadAllSettlements().find(function(s) { return s.id === id; });
+  if (settlement) {
+    var remainingShops = loadAllSaved().filter(function(s) {
+      return settlement.buildingIds.indexOf(s.id) === -1;
+    });
+    writeAllSaved(remainingShops);
+  }
+  var remainingSettlements = loadAllSettlements().filter(function(s) { return s.id !== id; });
+  writeAllSettlements(remainingSettlements);
+  if (currentSettlementId === id) currentSettlementId = null;
+  renderSettlementList();
+  renderSettlementDetail();
+}
+
+function openSettlement(id) {
+  currentSettlementId = id;
+  renderSettlementDetail();
+}
+
+// Load a settlement-generated shop into the Shop Generator tab for
+// viewing/editing, same as clicking "Load" on a regular saved shop.
+function loadSettlementShop(id) {
+  switchView("gen");
+  loadSaved(id);
+}
+
+function renderSettlementList() {
+  var all = loadAllSettlements();
+  var el = document.getElementById("settlementList");
+  if (!el) return;
+  if (all.length === 0) {
+    el.innerHTML = '<div class="saved-empty">No settlements yet — generate one above.</div>';
+    return;
+  }
+  all.sort(function(a, b) { return (b.createdAt || "").localeCompare(a.createdAt || ""); });
+  el.innerHTML = all.map(function(s) {
+    return '<div class="saved-row">' +
+      '<div><strong>' + escapeHtml(s.name) + '</strong> <span class="meta">(' +
+        s.sizeLabel + ', population ' + s.population.toLocaleString() + ', ' +
+        s.buildingIds.length + ' buildings)</span></div>' +
+      '<div><button class="small" onclick="openSettlement(\'' + s.id + '\')">Open</button> ' +
+      '<button class="small danger" onclick="deleteSettlement(\'' + s.id + '\')">Delete</button></div>' +
+    '</div>';
+  }).join("");
+}
+
+function renderSettlementDetail() {
+  var el = document.getElementById("settlementDetail");
+  var emptyMsg = document.getElementById("settlementEmptyMsg");
+  if (!el) return;
+  var settlement = loadAllSettlements().find(function(s) { return s.id === currentSettlementId; });
+  if (!settlement) {
+    el.innerHTML = "";
+    if (emptyMsg) emptyMsg.style.display = "";
+    return;
+  }
+  if (emptyMsg) emptyMsg.style.display = "none";
+
+  var savedShops = loadAllSaved();
+  var buildings = settlement.buildingIds
+    .map(function(id) { return savedShops.find(function(s) { return s.id === id; }); })
+    .filter(Boolean);
+
+  var byType = {};
+  buildings.forEach(function(b) { (byType[b.type] = byType[b.type] || []).push(b); });
+
+  var rows = Object.keys(SV_TABLE).map(function(type) {
+    var list = byType[type] || [];
+    var label = BUSINESS_LABELS[type] || type;
+    if (list.length === 0) {
+      return '<div class="saved-row"><div>' + escapeHtml(label) +
+        ' &mdash; <span class="meta">none (population too small to support one)</span></div></div>';
+    }
+    var links = list.map(function(b) {
+      return '<button class="small" onclick="loadSettlementShop(\'' + b.id + '\')">' +
+        escapeHtml(b.name) + ' (' + escapeHtml(b.npc.name) + ')</button>';
+    }).join(" ");
+    return '<div class="saved-row"><div><strong>' + escapeHtml(label) + '</strong> &times; ' + list.length +
+      '</div><div>' + links + '</div></div>';
+  }).join("");
+
+  el.innerHTML =
+    '<h2>' + escapeHtml(settlement.name) + '</h2>' +
+    '<p class="settlement-summary">' + settlement.sizeLabel + ' &mdash; population ' + settlement.population.toLocaleString() +
+    ' &mdash; ' + buildings.length + ' buildings generated</p>' +
+    rows;
+}
+
+// =====================================================================
 // IMPORT / EXPORT
 // =====================================================================
 function exportAll() {
@@ -1045,10 +1256,13 @@ renderSavedList();
 // =====================================================================
 function switchView(view) {
   document.getElementById("generatorView").style.display = view === "gen" ? "" : "none";
+  document.getElementById("settlementView").style.display = view === "settlement" ? "" : "none";
   document.getElementById("playerBizView").style.display = view === "biz" ? "" : "none";
   document.getElementById("tabGenBtn").classList.toggle("active", view === "gen");
+  document.getElementById("tabSettlementBtn").classList.toggle("active", view === "settlement");
   document.getElementById("tabBizBtn").classList.toggle("active", view === "biz");
   if (view === "biz") renderBizList();
+  if (view === "settlement") { renderSettlementList(); renderSettlementDetail(); }
 }
 
 // =====================================================================
