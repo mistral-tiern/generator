@@ -169,6 +169,10 @@
     max-width: 700px; margin: 0 auto 20px; font-size: 12px; color: var(--ink-soft);
     font-style: italic; border: 1px dashed var(--rule); padding: 10px 14px; border-radius: 2px;
   }
+  .ruleset-field { display: flex; flex-direction: column; gap: 3px; }
+  .ruleset-note {
+    font-size: 11px; color: var(--ink-soft); font-style: italic; padding: 0 2px; min-height: 1em;
+  }
   .table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
 
   /* ===================================================================
@@ -190,7 +194,7 @@
     .balance-block { text-align: left; }
 
     .controls { gap: 8px; }
-    .controls select, .controls button { flex: 1 1 auto; }
+    .controls select, .controls button, .controls .ruleset-field { flex: 1 1 auto; }
     .card-actions { flex-wrap: wrap; }
     .card-actions button { flex: 1 1 120px; }
 
@@ -244,10 +248,13 @@
     <option value="fantasy">Fantasy</option>
     <option value="postapoc">Post-Apocalyptic</option>
   </select>
-  <select id="fantasyRulesetSelect" onchange="onSettingChange()" style="font-family:inherit; font-size:13px; padding:9px 12px; border:1px solid var(--rule); border-radius:2px; background:var(--parchment-dark);">
-    <option value="DD">D&amp;D-Style (OSRIC / Basic / Labyrinth Lord / S&amp;W)</option>
-    <option value="TT">Tunnels &amp; Trolls</option>
-  </select>
+  <div class="ruleset-field">
+    <select id="fantasyRulesetSelect" onchange="onSettingChange()" style="font-family:inherit; font-size:13px; padding:9px 12px; border:1px solid var(--rule); border-radius:2px; background:var(--parchment-dark);">
+      <option value="DD">D&amp;D-Style</option>
+      <option value="TT">Tunnels &amp; Trolls</option>
+    </select>
+    <div class="ruleset-note" id="fantasyRulesetNote"></div>
+  </div>
   <select id="paRulesetSelect" onchange="onSettingChange()" style="display:none; font-family:inherit; font-size:13px; padding:9px 12px; border:1px solid var(--rule); border-radius:2px; background:var(--parchment-dark);">
     <option value="BU">Broken Urthe</option>
     <option value="MF">Mutant Future</option>
@@ -285,10 +292,13 @@
     <option value="fantasy">Fantasy</option>
     <option value="postapoc">Post-Apocalyptic</option>
   </select>
-  <select id="settlementFantasyRulesetSelect" onchange="onSettlementSettingChange()" style="font-family:inherit; font-size:13px; padding:9px 12px; border:1px solid var(--rule); border-radius:2px; background:var(--parchment-dark);">
-    <option value="DD">D&amp;D-Style (OSRIC / Basic / Labyrinth Lord / S&amp;W)</option>
-    <option value="TT">Tunnels &amp; Trolls</option>
-  </select>
+  <div class="ruleset-field">
+    <select id="settlementFantasyRulesetSelect" onchange="onSettlementSettingChange()" style="font-family:inherit; font-size:13px; padding:9px 12px; border:1px solid var(--rule); border-radius:2px; background:var(--parchment-dark);">
+      <option value="DD">D&amp;D-Style</option>
+      <option value="TT">Tunnels &amp; Trolls</option>
+    </select>
+    <div class="ruleset-note" id="settlementFantasyRulesetNote"></div>
+  </div>
   <select id="settlementPaRulesetSelect" onchange="onSettlementSettingChange()" style="display:none; font-family:inherit; font-size:13px; padding:9px 12px; border:1px solid var(--rule); border-radius:2px; background:var(--parchment-dark);">
     <option value="BU">Broken Urthe</option>
     <option value="MF">Mutant Future</option>
@@ -1282,6 +1292,11 @@ var POSTAPOC_TYPE_OPTIONS_COMMON = [
 ];
 var POSTAPOC_TYPE_OPTIONS_BU_ONLY = [["mechanic", "Mechanic"], ["robot", "Robotics"]];
 
+var FANTASY_RULESET_NOTES = {
+  DD: "Compatible with OSRIC, Basic, Labyrinth Lord, or S&W",
+  TT: "Compatible with Tunnels & Trolls rules"
+};
+
 function onSettingChange() {
   var setting = document.getElementById("settingSelect").value;
   var isPostApoc = setting === "postapoc";
@@ -1289,6 +1304,7 @@ function onSettingChange() {
   document.getElementById("paRulesetSelect").style.display = isPostApoc ? "" : "none";
   var fantasyRuleset = document.getElementById("fantasyRulesetSelect").value;
   var paRuleset = document.getElementById("paRulesetSelect").value;
+  document.getElementById("fantasyRulesetNote").textContent = isPostApoc ? "" : (FANTASY_RULESET_NOTES[fantasyRuleset] || "");
   var options;
   if (isPostApoc) {
     options = POSTAPOC_TYPE_OPTIONS_COMMON.concat(paRuleset === "BU" ? POSTAPOC_TYPE_OPTIONS_BU_ONLY : []);
@@ -1315,6 +1331,8 @@ function onSettlementSettingChange() {
   var isPostApoc = setting === "postapoc";
   document.getElementById("settlementFantasyRulesetSelect").style.display = isPostApoc ? "none" : "";
   document.getElementById("settlementPaRulesetSelect").style.display = isPostApoc ? "" : "none";
+  var fantasyRuleset = document.getElementById("settlementFantasyRulesetSelect").value;
+  document.getElementById("settlementFantasyRulesetNote").textContent = isPostApoc ? "" : (FANTASY_RULESET_NOTES[fantasyRuleset] || "");
 }
 
 function currentSettlementGameCode() {
