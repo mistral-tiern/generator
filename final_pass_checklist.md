@@ -4,52 +4,57 @@ Everything below was intentionally shortened, approximated, or invented to get
 a working preview fast. None of it is "wrong" as a demo, but none of it should
 ship as-is. Grouped by what needs to happen to fix it.
 
-**Status as of the latest review:** two items are resolved. Everything else
-on the original list is still open — the work since then (save/load, print,
-import/export, item suggestions, business value pricing, the Player-Owned
-Businesses tracker) added real features but didn't touch NPC/business/
-inventory fidelity. A new section (I) below covers placeholders introduced
-by that work.
+**Status as of the latest review:** sections A, B, and D are now resolved
+(races/hair, names, and dress/possessions all ported from real source data —
+see below). C, E, F, G, H, I are still open. The full original Wizardawn PHP
+source (146 files) is now available in `wizardawn-source/`, which is what
+made A/B/D resolvable — most of what's left in this doc is the same kind of
+"port it from source" work, not blocked on anything from you except I's
+downtime-economy numbers (those are new mechanics, not in the original app).
 
 ---
 
-## A. NPC Engine — Races — ⬜ still open, unchanged
+## A. NPC Engine — Races — ✅ resolved (except child NPCs)
 
-- [ ] **Race list**: expand from 8 → full 35 (`GFTRace()` in `city_gn.php`).
-      Each needs its height/weight multiplier pair (already extracted from
-      source, just needs entering).
-- [ ] **Per-race hair rules**: currently every race gets a flat 30% beard/
-      30% moustache chance. The original varies this by race group:
-      - Human/dwarf/gnome/hobbit/leprechaun/ogre/centaur/cyclops: full range (beard, moustache, or bald possible)
-      - Elf/brownie/fairy/pixie/satyr/sprite: no beard ever, moustache possible
-      - Dark-elf/dwurman/greyling/suvart: each has its own fixed hair-color + beard rule (not random)
-      - Orc/goblin/hobgoblin/troll: black/white hair only, beard+moustache both common
-      - Everything else (exotic races — centaur, minotaur, etc.): no hair system at all (`do_not_config_hair`)
-- [ ] **Hair color palette**: trimmed to 7 generic colors; original varies the
-      palette by race group (see above — some races have fixed single colors,
-      not a random pool).
-- [ ] **Child NPCs**: not implemented at all. Original supports a `child` age
+- [x] **Race list**: full 35 races, each with its real height/weight
+      multiplier pair from `GFTRace()`/`GFTStats()` in `city_gn.php`.
+- [x] **Per-race hair rules**: correctly grouped per source (`HAIR_GROUPS`/
+      `FIXED_HAIR` in the JS) — full-range races, no-beard elfish races,
+      the four dark races with individually fixed colors/rules, orcish
+      races, and the no-hair-system exotic races are all distinct groups
+      matching `GFTCitizen()`'s branching in `city_gn.php:157-223`.
+- [x] **Hair color palette**: full per-group palettes (not one flat 7-color
+      list), matching source.
+- [ ] **Child NPCs**: still not implemented. Original supports a `child` age
       state with halved height/weight, no beard/moustache/interests, and a
-      restricted hair-style pool.
+      restricted hair-style pool. Lower priority — not relevant for shop
+      owners/managers specifically, only for a future "generate a
+      townsperson" feature.
 
 > **Now used in two places, not one:** the "Hired a Manager" candidate
 > generator in Player-Owned Businesses calls the same `generateNPC()`, so
 > every gap here shows up twice — once for shop owners, once for managers.
 > That raises this section's priority.
 
-## B. NPC Engine — Names — ⬜ still open, unchanged
+## B. NPC Engine — Names — ✅ resolved
 
-- [ ] **Name banks**: currently ~8 hand-picked placeholder names per race.
-      Needs the real `names.php` data — thousands of entries, split into
-      dedicated generators per race/gender: `humanMaleName()`, `humanFemaleName()`,
-      `dwarfName()`, `gnomeName()`, `elfboyName()`, `elfgirlName()`,
-      `orcName()`, `goblinName()`, `catName()`, `wolfName()`, `lizardmanName()`,
+- [x] **Name banks**: ported from the real `names.php` (~19,500 entries
+      across the 20 functions actually reachable from `generateNPC()`) —
+      `humanMaleName()`, `humanFemaleName()`, `dwarfName()`, `gnomeName()`,
+      `elfboyName()`, `elfgirlName()`, `elfName()`, `orcName()`,
+      `goblinName()`, `catName()`, `wolfName()`, `lizardmanName()`,
       `ratmanName()`, `impName()`, `authorName()`, `speciesName()`,
-      `mutantName()`, `genericName()`, plus generic `MaleName()`/`FemaleName()`
-      fallbacks for races without a dedicated pool.
-- [ ] Race → name-generator mapping also has probability gates in the original
-      (e.g. "75% chance of a dedicated race name, else generic") — currently
-      my version always uses the dedicated pool with no fallback mixing.
+      `mutantName()`, `genericName()`, `MaleName()`, `FemaleName()`. Data is
+      embedded as a JSON script block (same pattern as `STORE_ITEMS`), not
+      one giant `var` literal.
+- [x] Race → name-generator mapping now replicates the real probability
+      gates from `GFTCitizen()` (`city_gn.php:260-292`) — each race has its
+      dedicated generator at the source's actual hit chance (75% for most,
+      50% for daklafar/greyling), falling through to a gendered 50/50
+      generic pool on a miss, instead of always using the dedicated pool.
+      `MaleName()`/`FemaleName()`'s own internal 1-in-3 prefix+suffix-combine
+      vs. flat-list split, and `wolfName()`'s compound-name logic, are both
+      replicated too, not simplified to a flat pick.
 
 ## C. NPC Engine — Personality & Traits — ⬜ still open, unchanged
 
@@ -69,26 +74,17 @@ by that work.
       looked already-deduped in source, but worth a second pass to confirm
       none were silently flattened.
 
-## D. NPC Engine — Dress & Possessions — ⬜ still open, unchanged
+## D. NPC Engine — Dress & Possessions — ✅ resolved
 
-- [ ] **Clothing pools have intentional duplicate weighting in source** (e.g.
-      original `PANTS` array is `kilt, long pants, short pants, long pants,
-      short pants, long pants, short pants, skirt` — "long/short pants" are
-      each listed 3x to make them common, "kilt"/"skirt" rare). I deduped
-      these to unique lists, which flattens the weighting. Needs restoring
-      per-item repeat counts (or converting to real weights).
-- [ ] **Hair/eye/garment color list**: trimmed to 21 of the original 26.
-- [ ] **Possessions system is a simplified stand-in for a 6-slot probability
-      chain** (`thing1`–`thing6` in source), each gated at a different chance
-      (100%, 60%, 70%, 20%, 40%, 20%) and each pulling from different pools:
-      - `thing1`/`thing2`: general trinkets (130-item `things` list) — I have ~13
-      - `thing3`: "junk" pool (90-item `junky` list) — not implemented separately
-      - `thing4`: **weapons** (10-item concealed-weapon list) — not implemented
-      - `thing5`: coin purse (implemented, roughly)
-      - `thing6`: **gems/jewelry for wealthy NPCs** (32+32 item gem lists,
-        100–500gp each) — not implemented at all
-      Final pass needs the full `things`/`junky`/weapon/gem lists and the
-      original's per-slot probability gates, not my flattened 2-trinket version.
+- [x] **Clothing pools now preserve source's intentional duplicate
+      weighting** (`PANTS_FULL`/`HCOLOR_FULL` match source's repeat counts —
+      e.g. "long pants"/"short pants" 3x each, "light-gray" 2x).
+- [x] **Hair/eye/garment color list**: full 26 entries, not trimmed.
+- [x] **Possessions system**: full 6-slot probability chain ported —
+      `THINGS` (135 entries), `JUNKY` (90), `WEAPON_TRINKETS` (10), `GEM1`/
+      `GEM2` (33+33), each gated at its real per-slot chance
+      (100/60/70/20/40/20%), matching `GFTCitizen()`'s `thing1`–`thing6`
+      chain in `city_gn.php`.
 
 ## E. Business Naming — ⬜ still open, one sub-item fixed
 
@@ -172,24 +168,27 @@ the same way:
 
 ## What I'd actually prioritize for *this* generator specifically
 
-Not every open item matters equally for finishing the shop/building
-generator on its own (some, like H's settlement scaling, are really about
-future generators). Narrowing to just what would make *this* one solid:
+**Update:** A, B, and D (races/hair, names, possessions) are now done — see
+above. The 14 business types and the Settlements tab (multi-building
+generation) also already shipped, ahead of where this section originally
+assumed. Re-prioritizing what's left:
 
-1. **A + D (races, hair rules, possessions fidelity)** — highest leverage,
-   since it now feeds both shop owners *and* hired managers.
-2. **E + F together (business types + their descriptions)** — the generator
-   currently only makes 3 kinds of building. Getting to a fuller set (even
-   just 6–8 more common ones) is probably the highest-value expansion for
-   actual use at the table.
+1. **E's remaining sub-items** — the naming/description word banks for the
+   11 non-original (Tavern/Inn/Blacksmith) business types are still original
+   content, not verified against `GFTBusiness()` in `city_gn.php` (which we
+   now know exists independently with its own banks, including a real,
+   non-invented Blacksmith case — confirmed this session). Porting those 11
+   against source is the next highest-leverage item.
+2. **F (description word bank depth + coverage)** — same source now
+   available (`descriptions.php`, `atmosphere.php`), same "only 3 types
+   have real ambiance banks" gap.
 3. **G's stock%/tier fidelity** — lower urgency; the current random range
    works fine for play, just isn't "correct."
-4. **B (full names.php)** — mechanical, big, but low-risk; good candidate to
-   batch-process whenever you're ready to hand over the file.
-5. **I's placeholders** — only urgent if you plan to actually run the
+4. **I's placeholders** — only urgent if you plan to actually run the
    downtime economy at the table soon; otherwise fine to leave as-is.
 
-C (trait weighting fidelity) and H (settlement scaling) I'd genuinely leave
-for last — they're real gaps, but neither blocks the generator from being
-useful today.
+C (trait weighting fidelity) and H (settlement scaling — note: the
+Settlements tab already exists, so H is really just "no multi-settlement
+economy/city-size linkage beyond building counts" now, not "single building
+only") I'd still leave for last.
 

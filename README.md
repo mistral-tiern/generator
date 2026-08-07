@@ -15,7 +15,7 @@ been started. See "What's left before shipping" below.
 
 ## What this actually is right now
 
-A single self-contained HTML file — `shop_generator_v2.html`. No install,
+A single self-contained HTML file — `shop_generator_v2-4.html`. No install,
 no server, no build step. Double-click it and it opens in your browser.
 All the app's data (a real ~1,900-row item catalog exported from the
 original Wizardawn database) is embedded directly in the file, so it
@@ -49,6 +49,17 @@ that rebuild starts; it's not throwaway.
 - Save/Load, Print (browser print dialog, clean layout), and Export/Import
   (JSON file) for saved shops.
 
+**Settlements tab**
+- Enter a name + population; generates how many of each of the 14 business
+  types the settlement supports, using the Medieval Demographics Made Easy
+  support-value formula (population ÷ SV, with the fractional remainder as
+  a % chance of one more).
+- Each building is a fully real, independently generated shop (owner NPC,
+  name, description, inventory) — not a stub or count-only placeholder.
+- Persists in localStorage; clicking a building jumps to the Shop Generator
+  tab with it loaded, so Save/Buy/print/export all keep working unchanged.
+  Deleting a settlement cascades to its member buildings.
+
 **Player-Owned Businesses tab**
 - Convert any saved shop into a player-owned business ("Buy").
 - Monthly downtime resolution: pay maintenance upfront, roll d100 + days
@@ -75,14 +86,14 @@ that rebuild starts; it's not throwaway.
 
 ## Running it
 
-Download `shop_generator_v2.html`, double-click it. That's it. Works in
+Download `shop_generator_v2-4.html`, double-click it. That's it. Works in
 any modern browser (Chrome, Edge, Firefox; Safari should work but has
 historically had quirks with the native autocomplete dropdown used for
 item suggestions).
 
 ## Project files
 
-- `shop_generator_v2.html` — the actual app.
+- `shop_generator_v2-4.html` — the actual app.
 - `wizardawn_architecture_plan.md` — the intended full-scale architecture
   (content-engine + data domains + API/frontend split) once this moves
   past prototype stage.
@@ -95,20 +106,22 @@ item suggestions).
 ## What's left before shipping
 
 ### Blocking / high-value
-- [ ] **Real NPC name banks.** Currently ~8 hand-picked placeholder names
-  per race (9 races have a bank at all; the rest fall back to a 10-name
-  generic list). The original `names.php` has thousands of entries across
-  dedicated per-race/gender generators — this is the single biggest
-  remaining fidelity gap, and it now affects both shop owners *and*
-  hired managers.
-- [ ] **Business-naming word banks are unverified against source.** The
-  creature/role/adjective banks were ported from `wizardBusiness()` in
-  `city_fantasy.php` (the OSRIC pathway) while the NPC engine follows
-  `GFTBusiness()`/`city_gn.php` (the generic pathway) — never confirmed
-  whether `GFTBusiness()` has its own separate word banks. Word bank
-  sizes are also trimmed from source (creature list 24/98, role list
-  24/52, adjective list 26/33). The 11 newly-added business types'
-  naming/description banks are original content, not ported at all.
+- [x] ~~Real NPC name banks~~ — **resolved.** Ported the real `names.php`
+  data (~19,500 entries across the 20 race/gender-specific generator
+  functions `generateNPC()` actually reaches), including the source's real
+  probability gates (dedicated pool at its real hit chance, else a generic
+  gendered fallback) instead of always using the dedicated pool. Affects
+  both shop owners and hired managers, since both call `generateNPC()`.
+- [ ] **Business-naming word banks are unverified against source for 11 of
+  14 business types.** Confirmed this session that `GFTBusiness()` in
+  `city_gn.php` *does* exist independently with its own word banks
+  (not shared with `wizardBusiness()`/`city_fantasy.php`), and that its
+  Blacksmith case is real, not invented — but Tavern/Inn/Blacksmith are
+  the only 3 types actually ported against it. The other 11 business
+  types' naming/description banks are still original content, not
+  checked against `GFTBusiness()` at all. Word bank sizes for the ported
+  3 are also trimmed from source (creature list 24/98, role list 24/52,
+  adjective list 26/33).
 - [ ] **Only `game='DD'` inventory is wired up.** No Tunnels & Trolls or
   sci-fi/post-apocalyptic support yet, despite that data existing in the
   source catalog.
@@ -141,9 +154,11 @@ item suggestions).
   taper it, or leave it uncapped as an earned reward).
 
 ### Bigger than "finish this generator" — future scope
-- [ ] Everything is a single building. The stated end goal is full
-  settlements (multiple buildings tied together by city size/economy) —
-  not attempted yet.
+- [x] ~~Everything is a single building~~ — a Settlements tab now exists:
+  enter a name + population, and it generates the right number of each
+  business type via the Medieval Demographics Made Easy support-value
+  formula, with each building a fully real generated shop. What's still
+  open is deeper city-size/economy linkage beyond building counts.
 - [ ] No accounts / server-side storage — by design for now (agreed
   tradeoff to ship something usable immediately), but real deployment
   ("on the web, for others to use") will need this.
