@@ -281,9 +281,22 @@
 <div id="settlementView" style="display:none;">
 
 <div class="controls">
+  <select id="settlementSettingSelect" onchange="onSettlementSettingChange()" style="font-family:inherit; font-size:13px; padding:9px 12px; border:1px solid var(--rule); border-radius:2px; background:var(--parchment-dark);">
+    <option value="fantasy">Fantasy</option>
+    <option value="postapoc">Post-Apocalyptic</option>
+  </select>
+  <select id="settlementFantasyRulesetSelect" onchange="onSettlementSettingChange()" style="font-family:inherit; font-size:13px; padding:9px 12px; border:1px solid var(--rule); border-radius:2px; background:var(--parchment-dark);">
+    <option value="DD">D&amp;D-Style (OSRIC / Basic / Labyrinth Lord / S&amp;W)</option>
+    <option value="TT">Tunnels &amp; Trolls</option>
+  </select>
+  <select id="settlementPaRulesetSelect" onchange="onSettlementSettingChange()" style="display:none; font-family:inherit; font-size:13px; padding:9px 12px; border:1px solid var(--rule); border-radius:2px; background:var(--parchment-dark);">
+    <option value="BU">Broken Urthe</option>
+    <option value="MF">Mutant Future</option>
+    <option value="PA">Generic Post-Apocalyptic</option>
+  </select>
   <input type="text" id="settlementName" placeholder="Settlement name" style="font-family:inherit; font-size:13px; padding:9px 12px; border:1px solid var(--rule); border-radius:2px; background:var(--parchment-dark);">
   <input type="number" id="settlementPopulation" value="800" min="1" placeholder="Population" style="font-family:inherit; font-size:13px; padding:9px 12px; border:1px solid var(--rule); border-radius:2px; background:var(--parchment-dark); width:120px;">
-  <button class="primary" onclick="generateSettlement(document.getElementById('settlementName').value, +document.getElementById('settlementPopulation').value)">Generate</button>
+  <button class="primary" onclick="generateSettlement(document.getElementById('settlementName').value, +document.getElementById('settlementPopulation').value, currentSettlementGameCode())">Generate</button>
 </div>
 <p class="empty" id="settlementIntroMsg">Population drives how many of each business type this settlement supports (Medieval Demographics Made Easy support-value formula) — a village of 400 gets one guaranteed tavern and only a 20% chance at an inn.</p>
 
@@ -1060,6 +1073,46 @@ var SV_TABLE = {
   provisioner: 400, stables: 1000, tailor: 250
 };
 
+// Tunnels & Trolls settlements only support the 7 types the TT catalog
+// actually stocks (see FANTASY_TT_TYPE_OPTIONS above) — reuses SV_TABLE's
+// values for those types rather than inventing new ones.
+var FANTASY_TT_SV_TABLE = {
+  blacksmith: SV_TABLE.blacksmith, bowyer: SV_TABLE.bowyer,
+  carpenter: SV_TABLE.carpenter, leatherworker: SV_TABLE.leatherworker,
+  provisioner: SV_TABLE.provisioner, stables: SV_TABLE.stables,
+  tailor: SV_TABLE.tailor
+};
+// Post-apoc Support Values are invented pegs (no medieval-demographics
+// equivalent exists for this setting) to the closest comparable-rarity
+// fantasy type: bar~tavern, patailor~tailor, supplies~provisioner,
+// stable~stables (all direct-ish analogues), medical~alchemist (rare
+// specialist), military~blacksmith (armed-goods dealer), vehicle~bowyer
+// (specialty craft, one tier rarer than a general supplier).
+var POSTAPOC_SV_TABLE_COMMON = {
+  military: 1500, bar: 400, patailor: 250, medical: 2800,
+  stable: 1000, vehicle: 2300, supplies: 400
+};
+// Mechanic/Robot are BU-only in the catalog (see POSTAPOC_TYPE_OPTIONS_BU_ONLY
+// above) — pegged to bowyer/library rarity respectively.
+var POSTAPOC_SV_TABLE_BU_ONLY = { mechanic: 2300, robot: 3000 };
+
+// Which Support-Value table (and thus which building types) a settlement
+// generates from, keyed off the same game code used for shop generation.
+function svTableForGame(game) {
+  if (isPostApocGame(game)) {
+    var table = {};
+    Object.keys(POSTAPOC_SV_TABLE_COMMON).forEach(function(k) { table[k] = POSTAPOC_SV_TABLE_COMMON[k]; });
+    if (game === "BU") {
+      Object.keys(POSTAPOC_SV_TABLE_BU_ONLY).forEach(function(k) { table[k] = POSTAPOC_SV_TABLE_BU_ONLY[k]; });
+    }
+    return table;
+  }
+  return game === "TT" ? FANTASY_TT_SV_TABLE : SV_TABLE;
+}
+function businessLabelsForGame(game) {
+  return isPostApocGame(game) ? PA_BUSINESS_LABELS : BUSINESS_LABELS;
+}
+
 // Fisher-Yates shuffle of a copy — used to sample a fixed number of
 // distinct items from a catalog without touching the original array.
 function shuffleCopy(arr) {
@@ -1253,6 +1306,28 @@ function currentGameCode() {
                                  : document.getElementById("fantasyRulesetSelect").value;
 }
 
+// Same setting/ruleset switch as above, mirrored onto the Settlements tab's
+// own selects so a settlement's building mix (and every shop generated
+// into it) comes from the chosen setting instead of always defaulting to
+// fantasy DD.
+function onSettlementSettingChange() {
+  var setting = document.getElementById("settlementSettingSelect").value;
+  var isPostApoc = setting === "postapoc";
+  document.getElementById("settlementFantasyRulesetSelect").style.display = isPostApoc ? "none" : "";
+  document.getElementById("settlementPaRulesetSelect").style.display = isPostApoc ? "" : "none";
+}
+
+function currentSettlementGameCode() {
+  var setting = document.getElementById("settlementSettingSelect").value;
+  return setting === "postapoc" ? document.getElementById("settlementPaRulesetSelect").value
+                                 : document.getElementById("settlementFantasyRulesetSelect").value;
+}
+
+var GAME_LABELS = {
+  DD: "D&D-Style", TT: "Tunnels & Trolls",
+  BU: "Broken Urthe", MF: "Mutant Future", PA: "Generic Post-Apocalyptic"
+};
+
 // item name -> catalog cost, for the currently-rendered shop's suggestion pool
 var currentSuggestionMap = {};
 
@@ -1424,15 +1499,17 @@ function writeAllSettlements(list) {
   localStorage.setItem(SETTLEMENTS_KEY, JSON.stringify(list));
 }
 
-function generateSettlement(name, population) {
+function generateSettlement(name, population, game) {
+  game = game || "DD";
   population = Math.max(1, Math.round(population) || 0);
   var buildingIds = [];
   var savedShops = loadAllSaved();
+  var svTable = svTableForGame(game);
 
-  Object.keys(SV_TABLE).forEach(function(type) {
-    var count = rollBuildingCount(population, SV_TABLE[type]);
+  Object.keys(svTable).forEach(function(type) {
+    var count = rollBuildingCount(population, svTable[type]);
     for (var i = 0; i < count; i++) {
-      var shop = buildShop(type);
+      var shop = buildShop(type, game);
       shop.settlementId = null; // set below once the settlement id exists
       savedShops.push(shop);
       buildingIds.push(shop.id);
@@ -1443,6 +1520,7 @@ function generateSettlement(name, population) {
     id: "settlement_" + Date.now() + "_" + Math.random().toString(36).slice(2, 8),
     name: name || "Unnamed Settlement",
     population: population,
+    game: game,
     sizeLabel: settlementSizeLabel(population),
     buildingIds: buildingIds,
     createdAt: new Date().toISOString()
@@ -1499,9 +1577,10 @@ function renderSettlementList() {
   }
   all.sort(function(a, b) { return (b.createdAt || "").localeCompare(a.createdAt || ""); });
   el.innerHTML = all.map(function(s) {
+    var gameLabel = GAME_LABELS[s.game || "DD"] || s.game;
     return '<div class="saved-row">' +
       '<div><strong>' + escapeHtml(s.name) + '</strong> <span class="meta">(' +
-        s.sizeLabel + ', population ' + s.population.toLocaleString() + ', ' +
+        gameLabel + ', ' + s.sizeLabel + ', population ' + s.population.toLocaleString() + ', ' +
         s.buildingIds.length + ' buildings)</span></div>' +
       '<div><button class="small" onclick="openSettlement(\'' + s.id + '\')">Open</button> ' +
       '<button class="small danger" onclick="deleteSettlement(\'' + s.id + '\')">Delete</button></div>' +
@@ -1529,9 +1608,11 @@ function renderSettlementDetail() {
   var byType = {};
   buildings.forEach(function(b) { (byType[b.type] = byType[b.type] || []).push(b); });
 
-  var rows = Object.keys(SV_TABLE).map(function(type) {
+  var settlementGame = settlement.game || "DD";
+  var labels = businessLabelsForGame(settlementGame);
+  var rows = Object.keys(svTableForGame(settlementGame)).map(function(type) {
     var list = byType[type] || [];
-    var label = BUSINESS_LABELS[type] || type;
+    var label = labels[type] || type;
     if (list.length === 0) {
       return '<div class="saved-row"><div>' + escapeHtml(label) +
         ' &mdash; <span class="meta">none (population too small to support one)</span></div></div>';
@@ -1546,7 +1627,8 @@ function renderSettlementDetail() {
 
   el.innerHTML =
     '<h2>' + escapeHtml(settlement.name) + '</h2>' +
-    '<p class="settlement-summary">' + settlement.sizeLabel + ' &mdash; population ' + settlement.population.toLocaleString() +
+    '<p class="settlement-summary">' + (GAME_LABELS[settlementGame] || settlementGame) + ' &mdash; ' + settlement.sizeLabel +
+    ' &mdash; population ' + settlement.population.toLocaleString() +
     ' &mdash; ' + buildings.length + ' buildings generated</p>' +
     rows;
 }
@@ -1597,6 +1679,7 @@ function importAll(evt) {
 
 // init
 onSettingChange();
+onSettlementSettingChange();
 renderSavedList();
 
 // =====================================================================
