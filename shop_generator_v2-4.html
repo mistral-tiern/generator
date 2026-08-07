@@ -1623,11 +1623,32 @@ var MAGIC_SELL_TABLE = {
 var RARITIES = ["Common","Uncommon","Rare","Very Rare","Legendary"];
 var DAYS_PER_MONTH = 30;
 
+// A ledger entry's balance is always derived from the running sum of gpDelta,
+// never stored as authoritative — this lets the DM edit/delete/insert any
+// entry after the fact and have every later balance recompute correctly.
+function genLedgerId() { return "led_" + Date.now() + "_" + Math.random().toString(36).slice(2, 8); }
+function pushLedger(biz, entry) {
+  entry.id = genLedgerId();
+  if (entry.month == null) entry.month = biz.month;
+  biz.ledger.push(entry);
+}
+function recalcLedgerBalances(biz) {
+  var bal = 0;
+  biz.ledger.forEach(function(entry) {
+    bal += (entry.gpDelta || 0);
+    entry.balance = bal;
+  });
+  biz.balance = bal;
+}
+
 // =====================================================================
 // PLAYER-OWNED BUSINESSES — storage + state
 // =====================================================================
 var PLAYER_BIZ_KEY = "wizardawn_player_businesses";
 var currentBiz = null;
+var pendingMonth = null;       // in-progress month roll awaiting a physical dice entry
+var physicalDiceMode = false;  // when true, the outcome/profit rolls pause for manual entry
+var ledgerEditingId = null;    // ledger row currently open in the edit form
 
 function loadAllBiz() {
   try { var raw = localStorage.getItem(PLAYER_BIZ_KEY); return raw ? JSON.parse(raw) : []; }
@@ -1715,6 +1736,8 @@ function renderBizDetail() {
       var options = RARITIES.map(function(r){ return '<option value="' + r + '">' + r + '</option>'; }).join("");
       magicControls = '<div class="magic-controls">' +
         '<select id="rarity_' + i.localId + '">' + options + '</select>' +
+        '<input type="number" min="1" placeholder="days (auto)" id="saleDays_' + i.localId + '" style="width:78px;" title="Rolled physically? Enter the days result here instead of letting the system roll.">' +
+        '<input type="number" min="1" max="100" placeholder="% (auto)" id="salePct_' + i.localId + '" style="width:72px;" title="Rolled physically? Enter the % result here instead of letting the system roll.">' +
         '<button class="small" onclick="listForSale(\'' + i.localId + '\')">List as Magic Item for Sale</button>' +
       '</div>';
     }
@@ -1727,11 +1750,33 @@ function renderBizDetail() {
   }).join("");
 
   var ledgerRows = biz.ledger.slice().reverse().map(function(l) {
+    if (ledgerEditingId === l.id) {
+      return '<tr><td><input type="number" min="0" style="width:46px;" id="ledgerEditMonth_' + l.id + '" value="' + l.month + '"></td>' +
+        '<td><input type="text" style="width:100%;" id="ledgerEditLabel_' + l.id + '" value="' + escapeHtml(l.label) + '"></td>' +
+        '<td><input type="number" style="width:80px;" id="ledgerEditGp_' + l.id + '" value="' + l.gpDelta + '"></td>' +
+        '<td>' + l.balance.toLocaleString() + ' gp</td>' +
+        '<td><button class="small primary" onclick="saveEditLedgerRow(\'' + l.id + '\')">Save</button> ' +
+          '<button class="small" onclick="cancelEditLedgerRow()">Cancel</button></td></tr>';
+    }
+    if (l.dmPending) {
+      return '<tr><td>Month ' + l.month + '</td>' +
+        '<td>' + escapeHtml(l.label) +
+          '<div class="magic-controls" style="margin-top:6px;">' +
+            '<input type="text" placeholder="What happened (DM narration)" id="dmDesc_' + l.id + '" style="width:220px;">' +
+            '<input type="number" placeholder="gp +/-" id="dmGp_' + l.id + '" style="width:70px;">' +
+            '<button class="small primary" onclick="resolveDmLedgerRow(\'' + l.id + '\')">Resolve</button>' +
+          '</div>' +
+        '</td>' +
+        '<td class="sale-status">pending DM</td>' +
+        '<td>' + l.balance.toLocaleString() + ' gp</td><td></td></tr>';
+    }
     var cls = l.gpDelta > 0 ? "delta-pos" : l.gpDelta < 0 ? "delta-neg" : "";
     var sign = l.gpDelta > 0 ? "+" : "";
     return '<tr><td>Month ' + l.month + '</td><td>' + escapeHtml(l.label) + '</td>' +
       '<td class="' + cls + '">' + sign + l.gpDelta.toLocaleString() + ' gp</td>' +
-      '<td>' + l.balance.toLocaleString() + ' gp</td></tr>';
+      '<td>' + l.balance.toLocaleString() + ' gp</td>' +
+      '<td><button class="small" onclick="startEditLedgerRow(\'' + l.id + '\')" title="Edit">Edit</button> ' +
+        '<button class="small danger" onclick="deleteLedgerRow(\'' + l.id + '\')" title="Delete">&times;</button></td></tr>';
   }).join("");
 
   document.getElementById("bizDetail").innerHTML =
@@ -1742,6 +1787,16 @@ function renderBizDetail() {
       '</div>' +
       '<div class="label">' + biz.ownerTitle + '</div>' +
       '<p class="owner-block"><span class="owner-name">' + escapeHtml(biz.npc.name) + '</span> runs this business on the owner\'s behalf.</p>' +
+
+      '<div class="label" style="margin-top:14px;">Withdraw / Deposit</div>' +
+      '<div style="font-size:13px; margin-bottom:4px;">' +
+        '<input type="number" min="0" step="1" id="wdAmount" placeholder="gp" style="width:80px;"> ' +
+        '<input type="text" id="wdNote" placeholder="Note (optional, e.g. \'Kestrel takes her cut\')" style="width:240px;"> ' +
+        '<button class="small primary" onclick="withdrawFromBiz()">Withdraw</button> ' +
+        '<button class="small" onclick="depositToBiz()">Deposit</button>' +
+      '</div>' +
+      '<p style="font-size:12px; font-style:italic; color:var(--ink-soft); margin:0 0 14px;">Withdraw pulls profits out to the party; Deposit pays down debt or reinvests personal gold.</p>' +
+
       '<div class="label">Inventory (' + biz.inventory.length + ' items)</div>' +
       '<table class="inv-table"><tbody>' + invRows + '</tbody></table>' +
 
@@ -1754,9 +1809,20 @@ function renderBizDetail() {
 
       renderUpgradesSection(biz) +
 
+      '<div class="label" style="margin-top:22px;">Dice Rolls</div>' +
+      '<div style="font-size:13px; margin-bottom:8px;">' +
+        '<label><input type="checkbox" id="physicalDiceCheckbox"' + (physicalDiceMode ? ' checked' : '') + ' onchange="physicalDiceMode=this.checked; renderBizDetail();"> We\'re rolling physical dice this month, not the system\'s number</label>' +
+      '</div>' +
+      (physicalDiceMode
+        ? '<div style="font-size:13px; margin-bottom:8px;">Outcome roll (d100): <input type="number" min="1" max="100" id="manualD100Input" style="width:60px;"> <span class="meta">enter your physical roll, or leave blank to auto-roll</span></div>'
+        : '') +
+
+      renderPendingMonthStep() +
+
       '<div class="card-actions">' +
-        '<button class="primary" onclick="runBusinessMonth()">Run This Month</button>' +
-        '<button onclick="advance30Days()">Advance 30 Days</button>' +
+        (pendingMonth
+          ? ''
+          : '<button class="primary" onclick="startMonthRoll()">Run This Month</button><button onclick="advance30Days()">Advance 30 Days</button>') +
         '<button onclick="window.print()">Print Summary</button>' +
       '</div>' +
     '</div>' +
@@ -1764,7 +1830,13 @@ function renderBizDetail() {
       '<h2 style="font-size:13px;letter-spacing:0.08em;text-transform:uppercase;color:var(--ink-soft);border-bottom:1px solid var(--rule);padding-bottom:6px;">Ledger</h2>' +
       (biz.ledger.length === 0
         ? '<p class="saved-empty">No months run yet.</p>'
-        : '<div class="table-scroll"><table class="ledger-table"><thead><tr><th>Month</th><th>Outcome</th><th>Change</th><th>Balance</th></tr></thead><tbody>' + ledgerRows + '</tbody></table></div>') +
+        : '<div class="table-scroll"><table class="ledger-table"><thead><tr><th>Month</th><th>Outcome</th><th>Change</th><th>Balance</th><th>DM</th></tr></thead><tbody>' + ledgerRows + '</tbody></table></div>') +
+      '<div style="border:1px dashed var(--rule); padding:10px 12px; margin-top:10px; border-radius:2px;">' +
+        '<div class="label" style="margin-bottom:6px;">Add Ledger Entry</div>' +
+        '<input type="text" id="manualLedgerDesc" placeholder="Description" style="width:240px;"> ' +
+        '<input type="number" id="manualLedgerGp" placeholder="gp +/-" style="width:80px;"> ' +
+        '<button class="small primary" onclick="addManualLedgerEntry()">Add</button>' +
+      '</div>' +
     '</div>';
 }
 
@@ -1901,10 +1973,13 @@ function listForSale(localId) {
   if (!item) return;
   var rarity = document.getElementById("rarity_" + localId).value;
   var t = MAGIC_SELL_TABLE[rarity];
+  // manual overrides let the DM/player use a physical roll here instead of the system's number
+  var manualDays = parseInt((document.getElementById("saleDays_" + localId) || {}).value, 10);
+  var manualPct = parseInt((document.getElementById("salePct_" + localId) || {}).value, 10);
   item.forSale = true;
   item.rarity = rarity;
-  item.daysRemaining = randInt(t.minDays, t.maxDays);
-  item.sellPct = randInt(t.minPct, t.maxPct); // locked in now, paid out when the sale resolves
+  item.daysRemaining = !isNaN(manualDays) && manualDays > 0 ? manualDays : randInt(t.minDays, t.maxDays);
+  item.sellPct = !isNaN(manualPct) && manualPct > 0 ? manualPct : randInt(t.minPct, t.maxPct); // locked in now, paid out when the sale resolves
   saveBiz();
   renderBizDetail();
 }
@@ -1918,57 +1993,117 @@ function cancelSale(localId) {
   renderBizDetail();
 }
 
-function runBusinessMonth() { runBusinessCycle(true); }
-function advance30Days() { runBusinessCycle(false); }
+// =====================================================================
+// MONTH ROLL \u2014 normally resolves in one click. When "physical dice" is
+// checked, the d100 (and, if the outcome calls for one, the profit dice)
+// pause for the DM/player to type in what they rolled at the table
+// instead of taking the system's random number.
+// =====================================================================
+function renderPendingMonthStep() {
+  if (!pendingMonth || pendingMonth.diceResult != null) return "";
+  var pm = pendingMonth;
+  return '<div style="border:1px dashed var(--rule); padding:12px 14px; margin:10px 0;">' +
+    '<p class="desc">Outcome: <strong>' + escapeHtml(pm.row.label) + '</strong> (total ' + pm.total + ')</p>' +
+    '<p class="desc">This result calls for ' + pm.row.dice[0] + 'd' + pm.row.dice[1] + ' for profit.</p>' +
+    '<input type="number" min="' + pm.row.dice[0] + '" placeholder="Physical roll total" id="manualDiceInput" style="width:120px;"> ' +
+    '<button class="small primary" onclick="confirmProfitDiceManual()">Confirm Physical Roll</button> ' +
+    '<button class="small" onclick="confirmProfitDiceAuto()">Auto-Roll Instead</button> ' +
+    '<button class="small danger" onclick="cancelMonthRoll()">Cancel</button>' +
+  '</div>';
+}
 
-function runBusinessCycle(includeManualDays) {
+function startMonthRoll() {
   if (!currentBiz) return;
   var biz = currentBiz;
-  biz.month += 1;
 
-  var daysSpent = includeManualDays
-    ? (parseInt((document.getElementById("daysSpentInput") || {}).value, 10) || 0)
-    : 0;
+  var daysSpent = parseInt((document.getElementById("daysSpentInput") || {}).value, 10) || 0;
   var upgradeBonus = totalUpgradeBonus(biz);
 
-  // Time & Cost: standard maintenance is paid upfront for the month
-  var upfrontCost = biz.dailyMaintenance * DAYS_PER_MONTH;
-  biz.balance -= upfrontCost;
-  biz.ledger.push({ month: biz.month, label: "Maintenance paid (" + biz.dailyMaintenance + " gp/day \u00d7 " + DAYS_PER_MONTH + " days)", gpDelta: -upfrontCost, balance: biz.balance });
+  var manualRollEl = document.getElementById("manualD100Input");
+  var manualRoll = manualRollEl && manualRollEl.value !== "" ? parseInt(manualRollEl.value, 10) : NaN;
+  var manualRollUsed = !isNaN(manualRoll) && manualRoll >= 1 && manualRoll <= 100;
+  var roll = manualRollUsed ? manualRoll : randInt(1, 100);
 
-  // Roll d100 + days spent tending + upgrade bonuses
-  var roll = randInt(1, 100);
   var total = roll + daysSpent + upgradeBonus;
   var row = RESULTS_TABLE.find(function(r){ return total >= r.min && total <= r.max; });
 
-  var modifierNote = (daysSpent || upgradeBonus)
-    ? " (roll " + roll + (daysSpent ? " + " + daysSpent + " days" : "") + (upgradeBonus ? " + " + upgradeBonus + " upgrades" : "") + " = " + total + ")"
-    : " (roll " + roll + ")";
+  pendingMonth = {
+    month: biz.month + 1, daysSpent: daysSpent, upgradeBonus: upgradeBonus,
+    roll: roll, total: total, row: row, manualRollUsed: manualRollUsed,
+    diceResult: null, diceManual: false
+  };
+
+  if (!row.dice) {
+    finalizeMonth();
+    return;
+  }
+  if (!physicalDiceMode) {
+    pendingMonth.diceResult = rollDice(row.dice[0], row.dice[1]);
+    finalizeMonth();
+    return;
+  }
+  renderBizDetail(); // pause for the physical dice entry
+}
+
+function confirmProfitDiceAuto() {
+  if (!pendingMonth) return;
+  pendingMonth.diceResult = rollDice(pendingMonth.row.dice[0], pendingMonth.row.dice[1]);
+  pendingMonth.diceManual = false;
+  finalizeMonth();
+}
+function confirmProfitDiceManual() {
+  if (!pendingMonth) return;
+  var val = parseInt((document.getElementById("manualDiceInput") || {}).value, 10);
+  if (isNaN(val) || val < pendingMonth.row.dice[0]) {
+    alert("Enter the total you rolled on " + pendingMonth.row.dice[0] + "d" + pendingMonth.row.dice[1] + ".");
+    return;
+  }
+  pendingMonth.diceResult = val;
+  pendingMonth.diceManual = true;
+  finalizeMonth();
+}
+function cancelMonthRoll() {
+  pendingMonth = null;
+  renderBizDetail();
+}
+
+function finalizeMonth() {
+  var biz = currentBiz;
+  var pm = pendingMonth;
+  var row = pm.row;
+  biz.month = pm.month;
+
+  var upfrontCost = biz.dailyMaintenance * DAYS_PER_MONTH;
+  pushLedger(biz, { month: biz.month, label: "Maintenance paid (" + biz.dailyMaintenance + " gp/day \u00d7 " + DAYS_PER_MONTH + " days)", gpDelta: -upfrontCost });
+
+  var rollSource = pm.manualRollUsed ? " \u2014 physical die" : "";
+  var modifierNote = (pm.daysSpent || pm.upgradeBonus)
+    ? " (roll " + pm.roll + rollSource + (pm.daysSpent ? " + " + pm.daysSpent + " days" : "") + (pm.upgradeBonus ? " + " + pm.upgradeBonus + " upgrades" : "") + " = " + pm.total + ")"
+    : " (roll " + pm.roll + rollSource + ")";
   var resultLabel = row.label + modifierNote;
 
   if (row.tier === "loss") {
-    // "pay 1.5x maintenance costs for each day" — upfront already covered 1x,
+    // "pay 1.5x maintenance costs for each day" \u2014 upfront already covered 1x,
     // this is the extra 0.5x on top
     var extra = Math.round(0.5 * biz.dailyMaintenance * DAYS_PER_MONTH);
-    biz.balance -= extra;
-    biz.ledger.push({ month: biz.month, label: resultLabel + " (extra 0.5\u00d7 maintenance)", gpDelta: -extra, balance: biz.balance });
+    pushLedger(biz, { month: biz.month, label: resultLabel + " (extra 0.5\u00d7 maintenance)", gpDelta: -extra });
   } else if (row.tier === "breakeven") {
-    biz.ledger.push({ month: biz.month, label: resultLabel, gpDelta: 0, balance: biz.balance });
+    pushLedger(biz, { month: biz.month, label: resultLabel, gpDelta: 0 });
   } else {
-    var diceResult = rollDice(row.dice[0], row.dice[1]);
+    var diceResult = pm.diceResult;
     var profit = diceResult * DICE_MULTIPLIER;
-    biz.balance += profit;
-    var diceNote = row.dice[0] + "d" + row.dice[1] + " (" + diceResult + ") \u00d7 " + DICE_MULTIPLIER + "gp";
-    biz.ledger.push({ month: biz.month, label: resultLabel + " \u2014 " + diceNote, gpDelta: profit, balance: biz.balance });
+    var diceSource = pm.diceManual ? " \u2014 physical die" : "";
+    var diceNote = row.dice[0] + "d" + row.dice[1] + " (" + diceResult + diceSource + ") \u00d7 " + DICE_MULTIPLIER + "gp";
+    pushLedger(biz, { month: biz.month, label: resultLabel + " \u2014 " + diceNote, gpDelta: profit });
     if (row.tier === "excellent") {
-      biz.ledger.push({ month: biz.month, label: "Potential bonus event \u2014 DM's discretion", gpDelta: 0, balance: biz.balance });
+      pushLedger(biz, { month: biz.month, label: "Potential bonus event", gpDelta: 0, dmPending: true, dmKind: "bonus" });
     }
   }
 
-  // Complication check (assumption: natural roll <= COMPLICATION_TRIGGER — adjust as needed)
-  if (roll <= COMPLICATION_TRIGGER) {
+  // Complication check (assumption: natural roll <= COMPLICATION_TRIGGER \u2014 adjust as needed)
+  if (pm.roll <= COMPLICATION_TRIGGER) {
     var complication = pick(COMPLICATIONS);
-    biz.ledger.push({ month: biz.month, label: "Complication: " + complication + " \u2014 resolve narratively", gpDelta: 0, balance: biz.balance });
+    pushLedger(biz, { month: biz.month, label: "Complication: " + complication, gpDelta: 0, dmPending: true, dmKind: "complication" });
   }
 
   // advance any pending magic-item sales by a month's worth of days
@@ -1978,13 +2113,130 @@ function runBusinessCycle(includeManualDays) {
     if (item.daysRemaining <= 0) {
       var itemValueGp = costToGp(item.cost) * (item.qty || 1);
       var payout = Math.round(itemValueGp * (item.sellPct / 100));
-      biz.balance += payout;
-      biz.ledger.push({ month: biz.month, label: "Sold " + item.item + " (" + item.rarity + ") for " + item.sellPct + "% of value", gpDelta: payout, balance: biz.balance });
+      pushLedger(biz, { month: biz.month, label: "Sold " + item.item + " (" + item.rarity + ") for " + item.sellPct + "% of value", gpDelta: payout });
       item._sold = true;
     }
   });
   biz.inventory = biz.inventory.filter(function(i) { return !i._sold; });
 
+  recalcLedgerBalances(biz);
+  pendingMonth = null;
+  saveBiz();
+  renderBizDetail();
+  renderBizList();
+}
+
+// "Advance 30 Days" is the quick, hands-off path \u2014 always auto-rolled,
+// no tending days, no physical-dice pause.
+function advance30Days() {
+  if (!currentBiz) return;
+  var biz = currentBiz;
+  var upgradeBonus = totalUpgradeBonus(biz);
+  var roll = randInt(1, 100);
+  var total = roll + upgradeBonus;
+  var row = RESULTS_TABLE.find(function(r){ return total >= r.min && total <= r.max; });
+  pendingMonth = {
+    month: biz.month + 1, daysSpent: 0, upgradeBonus: upgradeBonus,
+    roll: roll, total: total, row: row, manualRollUsed: false,
+    diceResult: row.dice ? rollDice(row.dice[0], row.dice[1]) : null, diceManual: false
+  };
+  finalizeMonth();
+}
+
+// =====================================================================
+// LEDGER \u2014 DM editing: resolve the "DM discretion" placeholder rows
+// (bonus event / complication) with a description and gp value, edit
+// or delete any entry, or add a brand-new manual entry. Every mutation
+// recalculates every later balance from the entries' gpDelta.
+// =====================================================================
+function resolveDmLedgerRow(id) {
+  if (!currentBiz) return;
+  var entry = currentBiz.ledger.find(function(l){ return l.id === id; });
+  if (!entry) return;
+  var desc = ((document.getElementById("dmDesc_" + id) || {}).value || "").trim();
+  var gp = parseFloat((document.getElementById("dmGp_" + id) || {}).value) || 0;
+  entry.label = entry.label + (desc ? " \u2014 " + desc : "");
+  entry.gpDelta = gp;
+  entry.dmPending = false;
+  recalcLedgerBalances(currentBiz);
+  saveBiz();
+  renderBizDetail();
+  renderBizList();
+}
+function startEditLedgerRow(id) {
+  ledgerEditingId = id;
+  renderBizDetail();
+}
+function cancelEditLedgerRow() {
+  ledgerEditingId = null;
+  renderBizDetail();
+}
+function saveEditLedgerRow(id) {
+  if (!currentBiz) return;
+  var entry = currentBiz.ledger.find(function(l){ return l.id === id; });
+  if (!entry) return;
+  var month = parseInt((document.getElementById("ledgerEditMonth_" + id) || {}).value, 10);
+  var label = (document.getElementById("ledgerEditLabel_" + id) || {}).value;
+  var gp = parseFloat((document.getElementById("ledgerEditGp_" + id) || {}).value);
+  if (!isNaN(month)) entry.month = month;
+  if (label != null && label.trim() !== "") entry.label = label;
+  if (!isNaN(gp)) entry.gpDelta = gp;
+  ledgerEditingId = null;
+  recalcLedgerBalances(currentBiz);
+  saveBiz();
+  renderBizDetail();
+  renderBizList();
+}
+function deleteLedgerRow(id) {
+  if (!currentBiz) return;
+  if (!confirm("Delete this ledger entry? This will recalculate the balance.")) return;
+  currentBiz.ledger = currentBiz.ledger.filter(function(l){ return l.id !== id; });
+  recalcLedgerBalances(currentBiz);
+  saveBiz();
+  renderBizDetail();
+  renderBizList();
+}
+function addManualLedgerEntry() {
+  if (!currentBiz) return;
+  var descEl = document.getElementById("manualLedgerDesc");
+  var gpEl = document.getElementById("manualLedgerGp");
+  var desc = ((descEl || {}).value || "").trim();
+  if (!desc) { alert("Enter a description for this ledger entry."); return; }
+  var gp = parseFloat((gpEl || {}).value) || 0;
+  pushLedger(currentBiz, { label: desc, gpDelta: gp });
+  recalcLedgerBalances(currentBiz);
+  saveBiz();
+  renderBizDetail();
+  renderBizList();
+}
+
+// =====================================================================
+// WITHDRAW / DEPOSIT — the party pulling profits out, or paying gold
+// back in to cover a debt. Withdrawals are capped at the current
+// balance; deposits have no cap (you can always pay more in).
+// =====================================================================
+function withdrawFromBiz() {
+  if (!currentBiz) return;
+  var amount = parseFloat((document.getElementById("wdAmount") || {}).value);
+  if (isNaN(amount) || amount <= 0) { alert("Enter a gp amount to withdraw."); return; }
+  if (amount > currentBiz.balance) {
+    alert("Can't withdraw " + amount.toLocaleString() + " gp — the business only holds " + currentBiz.balance.toLocaleString() + " gp.");
+    return;
+  }
+  var note = ((document.getElementById("wdNote") || {}).value || "").trim();
+  pushLedger(currentBiz, { label: "Withdrawal" + (note ? " — " + note : " — profits taken by the owner"), gpDelta: -amount });
+  recalcLedgerBalances(currentBiz);
+  saveBiz();
+  renderBizDetail();
+  renderBizList();
+}
+function depositToBiz() {
+  if (!currentBiz) return;
+  var amount = parseFloat((document.getElementById("wdAmount") || {}).value);
+  if (isNaN(amount) || amount <= 0) { alert("Enter a gp amount to deposit."); return; }
+  var note = ((document.getElementById("wdNote") || {}).value || "").trim();
+  pushLedger(currentBiz, { label: "Deposit" + (note ? " — " + note : " — debt repaid / capital added by the owner"), gpDelta: amount });
+  recalcLedgerBalances(currentBiz);
   saveBiz();
   renderBizDetail();
   renderBizList();
