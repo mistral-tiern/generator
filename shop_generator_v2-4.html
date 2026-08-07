@@ -42,6 +42,7 @@
   .controls {
     display: flex;
     justify-content: center;
+    align-items: flex-start;
     gap: 10px;
     margin-bottom: 16px;
     flex-wrap: wrap;
@@ -171,7 +172,8 @@
   }
   .ruleset-field { display: flex; flex-direction: column; gap: 3px; }
   .ruleset-note {
-    font-size: 11px; color: var(--ink-soft); font-style: italic; padding: 0 2px; min-height: 1em;
+    font-size: 11px; line-height: 1.3; color: var(--ink-soft); font-style: italic;
+    padding: 0 2px; height: 2.6em; overflow: hidden;
   }
   .table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
 
@@ -248,18 +250,21 @@
     <option value="fantasy">Fantasy</option>
     <option value="postapoc">Post-Apocalyptic</option>
   </select>
-  <div class="ruleset-field">
+  <div class="ruleset-field" id="fantasyRulesetField">
     <select id="fantasyRulesetSelect" onchange="onSettingChange()" style="font-family:inherit; font-size:13px; padding:9px 12px; border:1px solid var(--rule); border-radius:2px; background:var(--parchment-dark);">
       <option value="DD">D&amp;D-Style</option>
       <option value="TT">Tunnels &amp; Trolls</option>
     </select>
     <div class="ruleset-note" id="fantasyRulesetNote"></div>
   </div>
-  <select id="paRulesetSelect" onchange="onSettingChange()" style="display:none; font-family:inherit; font-size:13px; padding:9px 12px; border:1px solid var(--rule); border-radius:2px; background:var(--parchment-dark);">
-    <option value="BU">Broken Urthe</option>
-    <option value="MF">Mutant Future</option>
-    <option value="PA">Generic Post-Apocalyptic</option>
-  </select>
+  <div class="ruleset-field" id="paRulesetField" style="display:none;">
+    <select id="paRulesetSelect" onchange="onSettingChange()" style="font-family:inherit; font-size:13px; padding:9px 12px; border:1px solid var(--rule); border-radius:2px; background:var(--parchment-dark);">
+      <option value="BU">Broken Urthe</option>
+      <option value="MF">Mutant Future</option>
+      <option value="PA">Generic Post-Apocalyptic</option>
+    </select>
+    <div class="ruleset-note" id="paRulesetNote"></div>
+  </div>
   <select id="typeSelect" style="font-family:inherit; font-size:13px; padding:9px 12px; border:1px solid var(--rule); border-radius:2px; background:var(--parchment-dark);"></select>
   <select id="wealthSelect" title="How prosperous this business is — affects base value and how much of the catalog gets stocked" style="font-family:inherit; font-size:13px; padding:9px 12px; border:1px solid var(--rule); border-radius:2px; background:var(--parchment-dark);">
     <option value="poor">Poor</option>
@@ -292,18 +297,21 @@
     <option value="fantasy">Fantasy</option>
     <option value="postapoc">Post-Apocalyptic</option>
   </select>
-  <div class="ruleset-field">
+  <div class="ruleset-field" id="settlementFantasyRulesetField">
     <select id="settlementFantasyRulesetSelect" onchange="onSettlementSettingChange()" style="font-family:inherit; font-size:13px; padding:9px 12px; border:1px solid var(--rule); border-radius:2px; background:var(--parchment-dark);">
       <option value="DD">D&amp;D-Style</option>
       <option value="TT">Tunnels &amp; Trolls</option>
     </select>
     <div class="ruleset-note" id="settlementFantasyRulesetNote"></div>
   </div>
-  <select id="settlementPaRulesetSelect" onchange="onSettlementSettingChange()" style="display:none; font-family:inherit; font-size:13px; padding:9px 12px; border:1px solid var(--rule); border-radius:2px; background:var(--parchment-dark);">
-    <option value="BU">Broken Urthe</option>
-    <option value="MF">Mutant Future</option>
-    <option value="PA">Generic Post-Apocalyptic</option>
-  </select>
+  <div class="ruleset-field" id="settlementPaRulesetField" style="display:none;">
+    <select id="settlementPaRulesetSelect" onchange="onSettlementSettingChange()" style="font-family:inherit; font-size:13px; padding:9px 12px; border:1px solid var(--rule); border-radius:2px; background:var(--parchment-dark);">
+      <option value="BU">Broken Urthe</option>
+      <option value="MF">Mutant Future</option>
+      <option value="PA">Generic Post-Apocalyptic</option>
+    </select>
+    <div class="ruleset-note" id="settlementPaRulesetNote"></div>
+  </div>
   <input type="text" id="settlementName" placeholder="Settlement name" style="font-family:inherit; font-size:13px; padding:9px 12px; border:1px solid var(--rule); border-radius:2px; background:var(--parchment-dark);">
   <input type="number" id="settlementPopulation" value="800" min="1" placeholder="Population" style="font-family:inherit; font-size:13px; padding:9px 12px; border:1px solid var(--rule); border-radius:2px; background:var(--parchment-dark); width:120px;">
   <button class="primary" onclick="generateSettlement(document.getElementById('settlementName').value, +document.getElementById('settlementPopulation').value, currentSettlementGameCode())">Generate</button>
@@ -1300,8 +1308,8 @@ var FANTASY_RULESET_NOTES = {
 function onSettingChange() {
   var setting = document.getElementById("settingSelect").value;
   var isPostApoc = setting === "postapoc";
-  document.getElementById("fantasyRulesetSelect").style.display = isPostApoc ? "none" : "";
-  document.getElementById("paRulesetSelect").style.display = isPostApoc ? "" : "none";
+  document.getElementById("fantasyRulesetField").style.display = isPostApoc ? "none" : "";
+  document.getElementById("paRulesetField").style.display = isPostApoc ? "" : "none";
   var fantasyRuleset = document.getElementById("fantasyRulesetSelect").value;
   var paRuleset = document.getElementById("paRulesetSelect").value;
   document.getElementById("fantasyRulesetNote").textContent = isPostApoc ? "" : (FANTASY_RULESET_NOTES[fantasyRuleset] || "");
@@ -1329,8 +1337,8 @@ function currentGameCode() {
 function onSettlementSettingChange() {
   var setting = document.getElementById("settlementSettingSelect").value;
   var isPostApoc = setting === "postapoc";
-  document.getElementById("settlementFantasyRulesetSelect").style.display = isPostApoc ? "none" : "";
-  document.getElementById("settlementPaRulesetSelect").style.display = isPostApoc ? "" : "none";
+  document.getElementById("settlementFantasyRulesetField").style.display = isPostApoc ? "none" : "";
+  document.getElementById("settlementPaRulesetField").style.display = isPostApoc ? "" : "none";
   var fantasyRuleset = document.getElementById("settlementFantasyRulesetSelect").value;
   document.getElementById("settlementFantasyRulesetNote").textContent = isPostApoc ? "" : (FANTASY_RULESET_NOTES[fantasyRuleset] || "");
 }
